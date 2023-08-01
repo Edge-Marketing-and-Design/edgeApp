@@ -1,9 +1,8 @@
 {
     "name": "@edgedev/create-edge-app",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Create Edge Starter App",
-    "bin": "bin/cli-edge-app.js",
-    "private": true,
+    "bin": "./bin/cli.js",
     "scripts": {
         "build": "nuxt build",
         "dev": "nuxt dev",
