@@ -92,9 +92,9 @@ if (!installedFunctionDeps) {
 
 console.log(`Successfully created ${repoName}!`)
 
-// const main = async () => {
-//   const projectId = await promptForProjectId()
-//   await initializeFirebase(projectId, repoName)
-// }
+const main = async () => {
+  const projectId = await promptForProjectId()
+  await initializeFirebase(projectId, repoName)
+}
 
-// main()
+main()
