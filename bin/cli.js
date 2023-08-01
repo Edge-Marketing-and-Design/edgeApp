@@ -5,6 +5,7 @@ const readline = require('readline')
 
 const runCommand = (command) => {
   try {
+    console.log(`Running command: ${command}`)
     execSync(`${command}`, { stdio: 'inherit' })
   }
   catch (err) {
@@ -91,9 +92,9 @@ if (!installedFunctionDeps) {
 
 console.log(`Successfully created ${repoName}!`)
 
-const main = async () => {
-  const projectId = await promptForProjectId()
-  await initializeFirebase(projectId, repoName)
-}
+// const main = async () => {
+//   const projectId = await promptForProjectId()
+//   await initializeFirebase(projectId, repoName)
+// }
 
-main()
+// main()
