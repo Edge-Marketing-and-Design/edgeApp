@@ -56,8 +56,8 @@ const initializeFirebase = async (projectId, repoName) => {
   }
 
   console.log(`Initializing Firebase for ${repoName}...`)
-  runCommand(`cd ${repoName} && firebase init firestore functions hosting storage emulators --project default`)
   runCommand(`cd ${repoName} && firebase use --add ${projectId} --alias default`)
+  runCommand(`cd ${repoName} && firebase init firestore functions hosting storage emulators --project default`)
 
   if (fs.existsSync(`${pathToFirebaseJson}.temp`)) {
     fs.renameSync(`${pathToFirebaseJson}.temp`, pathToFirebaseJson)
