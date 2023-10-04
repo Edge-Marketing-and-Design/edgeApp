@@ -1,5 +1,5 @@
 const stripe = require('stripe')(process.env.STRIPE_API_KEY)
-const { onCall, HttpsError, logger, getFirestore, functions, admin, OpenAI, mailgun, twilio, db } = require('./config.js')
+const { onCall, HttpsError, logger, getFirestore, functions, admin, twilio, db } = require('./config.js')
 
 exports.redirectToStripeBilling = onCall(async (request) => {
   const data = request.data

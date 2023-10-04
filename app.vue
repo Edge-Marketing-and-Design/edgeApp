@@ -68,7 +68,7 @@ onMounted(() => {
     changeTheme('light')
   }
 })
-edgeFirebase.runFunction('initFirestore', {})
+edgeFirebase.runFunction('edgeFirebase-initFirestore', {})
 edgeGlobal.edgeState.userRoles = [
   {
     name: 'Admin',

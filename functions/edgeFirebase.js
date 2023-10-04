@@ -1,4 +1,4 @@
-const { onCall, HttpsError, logger, getFirestore, functions, admin, OpenAI, mailgun, twilio, db } = require('./config.js')
+const { onCall, HttpsError, logger, getFirestore, functions, admin, twilio, db } = require('./config.js')
 
 const authToken = process.env.TWILIO_AUTH_TOKEN
 const accountSid = process.env.TWILIO_SID
