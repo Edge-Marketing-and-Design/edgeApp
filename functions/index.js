@@ -6,6 +6,7 @@
 // exports.redirectToStripeBilling = redirectToStripeBilling
 // exports.stripeWebhook = stripeWebhook
 
+// TODO:  PUT THESE IN A GROUP... BUT THEN NEED TO CHANGE edgeFirebase.js to use the group name
 // Edge Functions
 const {
   sendVerificationCode,
