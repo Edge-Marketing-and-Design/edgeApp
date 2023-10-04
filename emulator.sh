@@ -14,4 +14,5 @@ DIR="./firebase_data"
 if [ ! -d "$DIR" ]; then
  cp -r ./firebase_data_emulator_seed ./firebase_data
 fi
+export NODE_ENV=development
 firebase emulators:start --import ./firebase_data --export-on-exit
