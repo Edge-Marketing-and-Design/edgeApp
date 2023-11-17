@@ -1,6 +1,6 @@
 {
     "name": "@edgedev/create-edge-app",
-    "version": "1.0.18",
+    "version": "1.0.19",
     "description": "Create Edge Starter App",
     "bin": {
         "create-edge-app": "./bin/cli.js"
@@ -30,7 +30,6 @@
     "dependencies": {
         "@chenfengyuan/vue-number-input": "2",
         "@edgedev/firebase": "latest",
-        "@edgedev/firebase-framework": "latest",
         "maska": "^2.1.9"
     }
 }
