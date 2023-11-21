@@ -42,8 +42,7 @@ const repoName = process.argv[2]
 
 const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
 const removeGitDirCommand = `rm -rf ${repoName}/.git`
-const installDependenciesCommand = `cd ${repoName} && pnpm install`
-const installFirebaseCommand = `cd ${repoName} && pnpm store prune && pnpm install --force --ignore-scripts=false @edgedev/firebase`
+const installDependenciesCommand = `cd ${repoName} && pnpm store prune && pnpm install --force --ignore-scripts=false`
 const installFunctionDependenciesCommand = `cd ${repoName}/functions && npm install`
 const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edgeFirebaseFramework`
 
@@ -68,12 +67,6 @@ if (!modifiedPackageJson) {
 console.log(`Installing dependencies for ${repoName}...`)
 const installedDeps = runCommand(installDependenciesCommand)
 if (!installedDeps) {
-  process.exit(1)
-}
-
-console.log(`Installing @edgedev/firebase for ${repoName}...`) // New log
-const installedFirebase = runCommand(installFirebaseCommand) // New command execution
-if (!installedFirebase) {
   process.exit(1)
 }
 
