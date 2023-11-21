@@ -1,7 +1,7 @@
 const stripe = require('stripe')(process.env.STRIPE_API_KEY)
-const { onCall, HttpsError, logger, getFirestore, functions, admin, twilio, db } = require('./config.js')
+const { onCall, HttpsError, logger, getFirestore, functions, admin, twilio, db, onRequest } = require('./config.js')
 
-exports.redirectToStripeBilling = onCall(async (request) => {
+exports.redirectToBilling = onCall(async (request) => {
   const data = request.data
   const auth = request.auth
 
@@ -36,7 +36,7 @@ exports.redirectToStripeBilling = onCall(async (request) => {
   return { url: session.url }
 })
 
-exports.stripeWebhook = functions.https.onRequest(async (request, response) => {
+exports.webhook = onRequest(async (request, response) => {
   let event
 
   try {
