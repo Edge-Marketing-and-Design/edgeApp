@@ -39,8 +39,10 @@ const modifyPackageJson = (repoName) => {
 }
 
 const repoName = process.argv[2]
+
 const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
 const removeGitDirCommand = `rm -rf ${repoName}/.git`
+const updatePackagesCommand = `cd ${repoName} && pnpm up -L`
 const installDependenciesCommand = `cd ${repoName} && pnpm install --force`
 const installFunctionDependenciesCommand = `cd ${repoName}/functions && npm install`
 const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edgeFirebaseFramework`
@@ -60,6 +62,12 @@ if (!removedGitDir) {
 console.log(`Modifying package.json for ${repoName}...`)
 const modifiedPackageJson = modifyPackageJson(repoName)
 if (!modifiedPackageJson) {
+  process.exit(1)
+}
+
+console.log(`Updating packages for ${repoName} to their latest versions...`)
+const updatedPackages = runCommand(updatePackagesCommand)
+if (!updatedPackages) {
   process.exit(1)
 }
 
