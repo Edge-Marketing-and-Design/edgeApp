@@ -24,6 +24,10 @@
     ],
     "rewrites": [
       {
+        "source": "/api/stripe",
+        "function": "stripe-webhook"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }
