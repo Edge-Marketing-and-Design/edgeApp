@@ -43,7 +43,7 @@ const repoName = process.argv[2]
 const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
 const removeGitDirCommand = `rm -rf ${repoName}/.git`
 const installDependenciesCommand = `cd ${repoName} && pnpm install`
-const installFirebaseCommand = `cd ${repoName} && pnpm install --ignore-scripts=false @edgedev/firebase`
+const installFirebaseCommand = `cd ${repoName} && pnpm install --force --ignore-scripts=false @edgedev/firebase`
 const installFunctionDependenciesCommand = `cd ${repoName}/functions && npm install`
 const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edgeFirebaseFramework`
 
