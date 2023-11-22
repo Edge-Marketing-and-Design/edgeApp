@@ -5,12 +5,12 @@ const edgeGlobal = inject('edgeGlobal')
 const state = reactive({
   newDocs: {
     things: {
-      name: { type: 'text', value: '', rules: [edgeGlobal.edgeRules.required], helper: 'Name', cols: '12' },
-      description: { type: 'text', value: '', rules: [], helper: 'Description', cols: '12' },
-      subthings: { type: 'collection', value: '', rules: [], helper: 'Subthings', cols: '12' },
+      name: { bindings: { 'field-type': 'text', 'label': 'Name', 'rules': [edgeGlobal.edgeRules.required], 'helper': 'Name' }, cols: '12', value: '' },
+      description: { bindings: { 'field-type': 'text', 'rules': [], 'helper': 'Description' }, cols: '12', value: '' },
+      subthings: { bindings: { 'field-type': 'collection', 'rules': [], 'helper': 'Subthings' }, cols: '12', value: '' },
     },
     subthings: {
-      name: { type: 'text', value: '', rules: [edgeGlobal.edgeRules.required], helper: 'Name', cols: '12' },
+      name: { bindings: { 'field-type': 'text', 'rules': [edgeGlobal.edgeRules.required], 'helper': 'Name' }, cols: '12', value: '' },
     },
   },
 })

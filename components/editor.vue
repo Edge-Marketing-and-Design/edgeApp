@@ -173,21 +173,18 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
         <v-row>
           <v-col v-for="(field, name, index) in props.newDocSchema" :key="index" :cols="field.cols">
             <g-input
-              v-if="field.type !== 'collection'"
+              v-if="field.bindings['field-type'] !== 'collection'"
               v-model="state.workingDoc[name]"
               :disable-tracking="props.docId === 'new'"
-              :field-type="field.type"
-              :rules="[edgeGlobal.edgeRules.required]"
-              :label="field.label"
               :parent-tracker-id="`${props.collection}-${props.docId}`"
-              :helper="field.helper"
+              v-bind="field.bindings"
             />
             <g-input
               v-else
               v-model="state.workingDoc[name]"
               :disable-tracking="props.docId === 'new'"
               field-type="select"
-              :label="field.label"
+              :label="field.bindings.label"
               :items="subCollection(name)"
               :parent-tracker-id="`${props.collection}-${props.docId}`"
             />
