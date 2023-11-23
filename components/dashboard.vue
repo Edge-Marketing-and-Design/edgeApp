@@ -90,7 +90,7 @@ const deleteAction = () => {
 </script>
 
 <template>
-  <v-card v-if="state.afterMount">
+  <v-card v-if="state.afterMount" class="mx-auto" max-width="1200">
     <v-toolbar flat>
       <v-toolbar-title>{{ capitalizeFirstLetter(props.collection) }}</v-toolbar-title>
       <v-text-field

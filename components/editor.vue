@@ -148,7 +148,7 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
 </script>
 
 <template>
-  <v-card v-if="state.afterMount">
+  <v-card v-if="state.afterMount" class="mx-auto" max-width="1200">
     <v-form
       v-model="state.form"
       validate-on="submit"
