@@ -82,6 +82,12 @@ exports.webhook = onRequest(async (request, response) => {
       if (session.customer) {
         await docRef.update({ stripeCustomerId: session.customer })
       }
+      if (session?.lines?.data[0]?.plan?.product) {
+        await docRef.update({ stripeProductId: session.lines.data[0].plan.product })
+      }
+      if (session?.lines?.data[0]?.price?.id) {
+        await docRef.update({ stripePriceId: session.lines.data[0].price.id })
+      }
 
       if (['customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted'].includes(event.type)) {
         await docRef.update({ stripeSubscription: session.status })

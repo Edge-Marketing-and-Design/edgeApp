@@ -1,4 +1,5 @@
 <script setup>
+// TODO : ADD CODE FOR NOTIFICATIONS AND DEEP LINKING
 import { useTheme } from 'vuetify'
 
 const vueTheme = useTheme()
