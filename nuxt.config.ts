@@ -13,6 +13,9 @@ export default defineNuxtConfig({
       registrationCode: process.env.REGISTRATION_CODE,
     },
   },
+  modules: [
+    '@vant/nuxt',
+  ],
   components: {
     dirs: [
       { path: '~/components/formSubtypes', global: true, prefix: 'form-subtypes' },
@@ -24,4 +27,5 @@ export default defineNuxtConfig({
       'process.env.DEBUG': false,
     },
   },
+  devtools: { enabled: false },
 })

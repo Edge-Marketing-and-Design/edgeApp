@@ -7,8 +7,8 @@
     },
     "scripts": {
         "build": "nuxt build",
-        "dev": "nuxt dev",
-        "emulator": "nuxt dev --dotenv .env.dev",
+        "dev": "nuxt dev --host",
+        "emulator": "nuxt dev --dotenv .env.dev --host",
         "build-emulator": "nuxt generate --dotenv .env.dev",
         "generate": "nuxt generate",
         "preview": "nuxt preview",
@@ -24,10 +24,11 @@
         "@vant/nuxt": "1.0.3",
         "eslint": "8.33.0",
         "firebase": "9.17.1",
-        "nuxt": "3.1.2",
+        "nuxt": "3.9.3",
         "sass": "1.58.0",
         "typescript": "4.9.5",
-        "vuedraggable": "4.1.0"
+        "vuedraggable": "4.1.0",
+        "vuetify": "^3.5.1"
     },
     "dependencies": {
         "@capacitor/android": "5.4.1",
@@ -38,7 +39,6 @@
         "@chenfengyuan/vue-number-input": "2",
         "@edgedev/firebase": "latest",
         "@vueuse/core": "10.4.1",
-        "maska": "2.1.9",
-        "vuetify": "3.3.19"
+        "maska": "2.1.9"
     }
 }
