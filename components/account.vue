@@ -66,6 +66,9 @@ const config = useRuntimeConfig()
               <v-list-item link to="/app/account/my-account">
                 <v-list-item-title>Account</v-list-item-title>
               </v-list-item>
+              <v-list-item link to="/app/account/my-organizations">
+                <v-list-item-title>Organizations</v-list-item-title>
+              </v-list-item>
             </v-list>
 
             <v-divider />
@@ -85,6 +88,9 @@ const config = useRuntimeConfig()
             </v-tab>
             <v-tab key="my-account" value="my-account" to="/app/account/my-account">
               Account
+            </v-tab>
+            <v-tab key="my-organizations" value="my-organizations" to="/app/account/my-organizations">
+              Organizations
             </v-tab>
           </v-tabs>
           <!-- Content -->
