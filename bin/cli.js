@@ -44,7 +44,7 @@ const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketin
 const removeGitDirCommand = `rm -rf ${repoName}/.git`
 const installDependenciesCommand = `cd ${repoName} && pnpm store prune && pnpm install --force --ignore-scripts=false`
 const installFunctionDependenciesCommand = `cd ${repoName}/functions && npm install`
-const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edgeFirebaseFramework`
+const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edge-vue-components.git`
 
 console.log(`Cloning with name ${repoName}...`)
 const checkedOut = runCommand(gitCheckoutCommand)
