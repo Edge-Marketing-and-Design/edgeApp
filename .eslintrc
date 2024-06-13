@@ -1,0 +1,10 @@
+{
+  "root": true,
+  "extends": "@antfu", 
+  "rules": {
+    "vue/no-deprecated-slot-attribute": "off",
+    "curly": "off",
+    "no-console": "off",
+    "antfu/top-level-function": "off"
+  }
+}
