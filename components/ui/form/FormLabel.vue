@@ -1,21 +1,21 @@
-<script setup>
-import { useFormField } from "./useFormField";
-import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
+<script lang="ts" setup>
+import type { HTMLAttributes } from 'vue'
+import type { LabelProps } from 'radix-vue'
+import { useFormField } from './useFormField'
+import { cn } from '@/lib/utils'
+import { Label } from '@/components/ui/label'
 
-const props = defineProps({
-  for: { type: String, required: false },
-  asChild: { type: Boolean, required: false },
-  as: { type: null, required: false },
-  class: { type: null, required: false },
-});
+const props = defineProps<LabelProps & { class?: HTMLAttributes['class'] }>()
 
-const { error, formItemId } = useFormField();
+const { error, formItemId } = useFormField()
 </script>
 
 <template>
   <Label
-    :class="cn(error && 'text-destructive', props.class)"
+    :class="cn(
+      error && 'text-destructive',
+      props.class,
+    )"
     :for="formItemId"
   >
     <slot />

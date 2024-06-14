@@ -1,32 +1,20 @@
-<script setup>
-import { computed } from "vue";
-import { Separator } from "radix-vue";
-import { cn } from "@/lib/utils";
+<script setup lang="ts">
+import { type HTMLAttributes, computed } from 'vue'
+import { Separator, type SeparatorProps } from 'radix-vue'
+import { cn } from '@/lib/utils'
 
-const props = defineProps({
-  orientation: { type: String, required: false },
-  decorative: { type: Boolean, required: false },
-  asChild: { type: Boolean, required: false },
-  as: { type: null, required: false },
-  class: { type: null, required: false },
-});
+const props = defineProps<SeparatorProps & { class?: HTMLAttributes['class'] }>()
 
 const delegatedProps = computed(() => {
-  const { class: _, ...delegated } = props;
+  const { class: _, ...delegated } = props
 
-  return delegated;
-});
+  return delegated
+})
 </script>
 
 <template>
   <Separator
     v-bind="delegatedProps"
-    :class="
-      cn(
-        'shrink-0 bg-border',
-        props.orientation === 'vertical' ? 'w-px h-full' : 'h-px w-full',
-        props.class,
-      )
-    "
+    :class="cn('shrink-0 bg-border', props.orientation === 'vertical' ? 'w-px h-full' : 'h-px w-full', props.class)"
   />
 </template>
