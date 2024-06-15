@@ -11,6 +11,7 @@ const state = reactive({
     },
     subthings: {
       name: { bindings: { 'field-type': 'text', 'rules': [edgeGlobal.edgeRules.required], 'helper': 'Name' }, cols: '12', value: '' },
+      test: { bindings: { 'field-type': 'boolean', 'rules': [], 'label': 'Description', 'helper': 'Test' }, cols: '12', value: '' },
     },
   },
 })

@@ -175,6 +175,7 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
             <edge-g-input
               v-if="field.bindings['field-type'] !== 'collection'"
               v-model="state.workingDoc[name]"
+              :name="name"
               :disable-tracking="props.docId === 'new'"
               :parent-tracker-id="`${props.collection}-${props.docId}`"
               v-bind="field.bindings"
@@ -185,6 +186,7 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
               :disable-tracking="props.docId === 'new'"
               field-type="select"
               :label="field.bindings.label"
+              :name="name"
               :items="subCollection(name)"
               :parent-tracker-id="`${props.collection}-${props.docId}`"
             />
