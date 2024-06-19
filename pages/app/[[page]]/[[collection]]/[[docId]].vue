@@ -10,8 +10,12 @@ const state = reactive({
       subthings: { bindings: { 'field-type': 'collection', 'label': 'Subthings', 'rules': [], 'helper': 'Subthings' }, cols: '12', value: '' },
     },
     subthings: {
-      name: { bindings: { 'field-type': 'text', 'rules': [edgeGlobal.edgeRules.required], 'helper': 'Name' }, cols: '12', value: '' },
+      name: { bindings: { 'field-type': 'text', 'rules': [edgeGlobal.edgeRules.required], 'label': 'Name', 'helper': 'Name' }, cols: '12', value: '' },
       test: { bindings: { 'field-type': 'boolean', 'rules': [], 'label': 'Description', 'helper': 'Test' }, cols: '12', value: '' },
+      selectTest: { bindings: { 'field-type': 'select', 'rules': [], 'label': 'Select', 'helper': 'Select', 'items': ['test1', 'test2', 'test3'] }, cols: '12', value: '' },
+      testtextarea: { bindings: { 'field-type': 'textarea', 'rules': [edgeGlobal.edgeRules.required], 'label': 'Test Textarea', 'helper': 'Textarea' }, cols: '12', value: '' },
+      arrayThing: { bindings: { 'field-type': 'array', 'rules': [], 'label': 'Array', 'helper': 'Array' }, cols: '12', value: [] },
+      objectThing: { bindings: { 'field-type': 'object', 'rules': [], 'label': 'Object', 'helper': 'Obj' }, cols: '12', value: {} },
     },
   },
 })

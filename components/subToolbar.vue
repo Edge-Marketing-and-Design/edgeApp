@@ -1,14 +1,5 @@
 <script setup>
 const el = ref(null)
-const edgeFirebase = inject('edgeFirebase')
-const user = computed(() => {
-  return edgeFirebase.user
-})
-watch (el, async () => {
-  if (user.value.loggedIn) {
-    globalState.secondHeaderHeight = el.value.$el.offsetHeight
-  }
-})
 </script>
 
 <template>

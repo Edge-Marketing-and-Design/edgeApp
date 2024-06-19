@@ -127,9 +127,7 @@ const deleteAction = () => {
               />
             </template>
           </v-list-item>
-          <Separator
-            inset
-          />
+          <Separator class="dark:bg-slate-600" />
         </template>
       </v-list>
     </v-card-text>

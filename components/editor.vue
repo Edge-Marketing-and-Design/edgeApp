@@ -110,6 +110,8 @@ const title = computed(() => {
 const onSubmit = async (event) => {
   const results = await event
   if (results.valid) {
+    console.log('submitting')
+    console.log(state.workingDoc)
     state.bypassUnsavedChanges = true
     edgeFirebase.storeDoc(`${edgeGlobal.edgeState.organizationDocPath}/${props.collection}`, state.workingDoc)
     edgeGlobal.edgeState.changeTracker = {}

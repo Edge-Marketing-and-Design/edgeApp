@@ -54,7 +54,7 @@ const config = useRuntimeConfig()
                 <v-list-item-title>Members</v-list-item-title>
               </v-list-item>
             </v-list>
-            <Separator />
+            <Separator class="dark:bg-slate-600" />
             <v-list :lines="false" density="compact" nav>
               <v-list-subheader class="">
                 My Settings
@@ -71,7 +71,7 @@ const config = useRuntimeConfig()
               </v-list-item>
             </v-list>
 
-            <Separator />
+            <Separator class="dark:bg-slate-600" />
           </v-card>
         </v-col>
         <v-col cols="12" sm="9">

@@ -37,10 +37,10 @@ const edgeFirebase = inject('edgeFirebase')
           </template>
         </v-list-item>
       </v-list>
-      <Separator />
+      <Separator class="dark:bg-slate-600" />
       <edge-org-switcher />
 
-      <Separator />
+      <Separator class="dark:bg-slate-600" />
 
       <v-list :lines="false" density="compact" nav>
         <v-list-item link to="/app/account/organization-settings">
@@ -52,7 +52,7 @@ const edgeFirebase = inject('edgeFirebase')
         </v-list-item>
       </v-list>
 
-      <Separator />
+      <Separator class="dark:bg-slate-600" />
 
       <v-list :lines="false" density="compact" nav>
         <v-list-item @click="logOut(edgeFirebase, edgeGlobal)">
