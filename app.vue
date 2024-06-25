@@ -1,7 +1,6 @@
 <script setup>
 // TODO : ADD CODE FOR NOTIFICATIONS AND DEEP LINKING
 import { useTheme } from 'vuetify'
-
 const vueTheme = useTheme()
 const changeTheme = (theme) => {
   vueTheme.global.name.value = theme
@@ -95,11 +94,14 @@ edgeGlobal.edgeState.userRoles = [
 
 <template>
   <v-app>
+    <Toaster />
     <top-menu v-if="edgeFirebase.user.loggedIn" />
-    <v-main>
+    <div class="w-full h-full">
       <NuxtPage />
-    </v-main>
-    <bottom-menu v-if="edgeFirebase.user.loggedIn" />
+    </div>
+    <!-- <bottom-menu v-if="edgeFirebase.user.loggedIn" /> -->
+
+    <!-- Add this class to your div -->
   </v-app>
 </template>
 

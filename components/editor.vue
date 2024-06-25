@@ -186,10 +186,10 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
               v-else
               v-model="state.workingDoc[name]"
               :disable-tracking="props.docId === 'new'"
-              field-type="select"
+              field-type="collection"
+              :collection-path="`${edgeGlobal.edgeState.organizationDocPath}/${field.bindings['collection-path']}`"
               :label="field.bindings.label"
               :name="name"
-              :items="subCollection(name)"
               :parent-tracker-id="`${props.collection}-${props.docId}`"
             />
           </v-col>

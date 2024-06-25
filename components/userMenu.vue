@@ -1,9 +1,27 @@
 <script setup>
+import {
+  Settings2,
+} from 'lucide-vue-next'
 const edgeFirebase = inject('edgeFirebase')
 // const edgeGlobal = inject('edgeGlobal')
 </script>
 
 <template>
+  <DropdownMenu>
+    <DropdownMenuTrigger as-child>
+      <Button size="icon" class="text-white bg-slate-600 rounded-full">
+        <Settings2 class="h-5 w-5" />
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      <DropdownMenuLabel>My Account</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem>Settings</DropdownMenuItem>
+      <DropdownMenuItem>Support</DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem>Logout</DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
   <v-menu>
     <template #activator="{ props }">
       <v-btn
