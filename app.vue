@@ -49,6 +49,11 @@ watch(currentOrganization, async () => {
   }
 })
 
+const orgName = computed(() => {
+  const org = edgeGlobal.edgeState.organizations.find(org => org.docId === edgeGlobal.edgeState.currentOrganization)
+  return org?.name
+})
+
 const user = computed(() => {
   return edgeFirebase.user
 })
@@ -90,18 +95,51 @@ edgeGlobal.edgeState.userRoles = [
     ],
   },
 ]
+
+const menuItems = [
+  {
+    title: 'Dashboard',
+    to: '/app/dashboard/things',
+    icon: 'Braces',
+  },
+  {
+    title: 'Sub Things',
+    to: '/app/dashboard/subthings',
+    icon: 'Package',
+  },
+]
 </script>
 
 <template>
   <v-app>
     <Toaster />
-    <top-menu v-if="edgeFirebase.user.loggedIn" />
-    <div class="w-full h-full">
-      <NuxtPage />
+    <div class="flex flex-col h-screen">
+      <edge-menu v-if="edgeFirebase.user.loggedIn" class="bg-slate-300 dark:bg-slate-900" :menu-items="menuItems">
+        <template #start>
+          <Package class="h-6 w-6 mr-2" />
+          <h1 class="text-xl font-bold">
+            {{ orgName }}
+          </h1>
+        </template>
+      </edge-menu>
+      <div class="w-full h-full">
+        <NuxtPage />
+      </div>
+      <edge-menu
+        v-if="edgeFirebase.user.loggedIn"
+        type="footer"
+        button-class="text-slate-500"
+        nav-class="justify-end mr-8"
+        class="bg-slate-800"
+        :menu-items="menuItems"
+      >
+        <template #start>
+          <div class="text-xs text-muted-foreground">
+            Copyright {{ new Date().getFullYear() }}
+          </div>
+        </template>
+      </edge-menu>
     </div>
-    <!-- <bottom-menu v-if="edgeFirebase.user.loggedIn" /> -->
-
-    <!-- Add this class to your div -->
   </v-app>
 </template>
 

@@ -3,6 +3,6 @@
 
 <template>
   <div>
-    <v-card v-if="globalState.subscribedStatus.isSubscribed" outlined />
+    <Card v-if="globalState.subscribedStatus.isSubscribed" />
   </div>
 </template>

@@ -1,5 +1,6 @@
 <script setup>
 const route = useRoute()
+const router = useRouter()
 // const edgeGlobal = inject('edgeGlobal')
 
 const state = reactive({
@@ -45,12 +46,18 @@ const docId = computed(() => {
 definePageMeta({
   middleware: 'auth',
 })
+
+onMounted(() => {
+  if (!route.params.collection) {
+    router.push('/app/dashboard/things')
+  }
+})
 </script>
 
 <template>
   <div
     v-if="edgeGlobal.edgeState.organizationDocPath"
-    class="p-3 w-full h-full"
+    class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
     <dashboard v-if="page === 'dashboard' && docId === ''" :collection="collection" />
     <editor v-else-if="page === 'dashboard' && docId !== ''" :collection="collection" :doc-id="docId" :new-doc-schema="state.newDocs[collection]" />
