@@ -11,15 +11,18 @@ import {
   ChevronRight,
   ChevronsUpDown,
   CircleUser,
+  Copy,
   Eye,
   EyeOff,
+  FilePenLine,
   Grip,
   Group,
   Info,
+  List,
   ListPlus,
   Loader2,
-  LogOut,
-  MoreHorizontal, Package,
+  LogOut, MoreHorizontal,
+  Package,
   Pencil,
   PlusIcon,
   Settings,
@@ -61,4 +64,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('Box', Box)
   nuxtApp.vueApp.component('LogOut', LogOut)
   nuxtApp.vueApp.component('Info', Info)
+  nuxtApp.vueApp.component('FilePenLine', FilePenLine)
+  nuxtApp.vueApp.component('List', List)
+  nuxtApp.vueApp.component('Copy', Copy)
 })

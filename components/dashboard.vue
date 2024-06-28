@@ -90,93 +90,76 @@ const deleteAction = () => {
 </script>
 
 <template>
-  <v-card v-if="state.afterMount" class="mx-auto" max-width="1200">
-    <v-toolbar flat>
-      <v-toolbar-title>{{ capitalizeFirstLetter(props.collection) }}</v-toolbar-title>
-      <v-text-field
-        v-model="state.filter"
-        label="Filter"
-        prepend-icon="mdi-filter"
-        variant="underlined"
-        hide-details
-        clearable
-        @click:clear="state.filter = ''"
-      />
-      <v-spacer />
-      <v-btn variant="outlined" :to="`/app/dashboard/${props.collection}/new`">
-        Add {{ singularize(props.collection) }}
-      </v-btn>
-    </v-toolbar>
-    <v-card-text>
-      <v-list lines="two">
+  <edge-v-card v-if="state.afterMount" class="mx-auto bg-muted/50" max-width="1200">
+    <edge-menu class="py-9">
+      <template #start>
+        <Box class="mr-2" />
+        {{ capitalizeFirstLetter(props.collection) }}
+      </template>
+      <template #center>
+        <div class="w-full px-6">
+          <edge-shad-input
+            v-model="state.filter"
+            label=""
+            name="filter"
+            placeholder="Search..."
+          />
+        </div>
+      </template>
+      <template #end>
+        <edge-shad-button class="uppercase bg-slate-600" :to="`/app/dashboard/${props.collection}/new`">
+          Add {{ singularize(props.collection) }}
+        </edge-shad-button>
+      </template>
+    </edge-menu>
+    <edge-v-card-text>
+      <edge-v-list lines="two">
         <template v-for="item in filtered" :key="item.docId">
-          <v-list-item @click="gotoSite(item.docId)">
+          <edge-v-list-item class="cursor-pointer" @click="gotoSite(item.docId)">
             <template #prepend>
-              <v-avatar color="grey-darken-1">
-                <v-icon>mdi-file-edit</v-icon>
-              </v-avatar>
+              <Avatar class="cursor-pointer p-0 h-8 w-8 mr-2">
+                <FilePenLine class="h-5 w-5" />
+              </Avatar>
             </template>
 
-            <v-list-item-title>{{ item.name }}</v-list-item-title>
+            <edge-v-list-item-title>{{ item.name }}</edge-v-list-item-title>
             <template #append>
-              <v-btn
-                color="grey-lighten-1"
-                icon="mdi-delete"
-                variant="text"
+              <edge-shad-button
+                size="icon"
+                class="bg-slate-600 h-7 w-7"
                 @click.stop="deleteItem(item.docId)"
-              />
+              >
+                <Trash class="h-5 w-5" />
+              </edge-shad-button>
             </template>
-          </v-list-item>
+          </edge-v-list-item>
           <Separator class="dark:bg-slate-600" />
         </template>
-      </v-list>
-    </v-card-text>
-    <v-dialog
+      </edge-v-list>
+    </edge-v-card-text>
+    <edge-shad-dialog
       v-model="state.deleteDialog"
-      persistent
-      max-width="600"
-      transition="fade-transition"
     >
-      <v-card>
-        <v-toolbar flat>
-          <v-icon class="mx-4">
-            mdi-list-box
-          </v-icon>
-          Delete
-          <v-spacer />
-
-          <v-btn
-            type="submit"
-            color="primary"
-            icon
-            @click="state.deleteDialog = false"
-          >
-            <v-icon> mdi-close</v-icon>
-          </v-btn>
-        </v-toolbar>
-        <v-card-title>Are you sure you want to delete "{{ state.deleteItemName }}"?</v-card-title>
-        <v-card-text>Hey there, you're about to banish "{{ state.deleteItemName }}" into the endless abyss of deletion, never to be seen again. Remember, this is not just another trashy reality TV show - there are no sudden comebacks or surprise twists. Once it's gone, it's gone, just like the dignity of anyone who wears socks with sandals. Are you 100% sure you're ready to make ""{{ state.deleteItemName }}"" disappear like a magician's assistant? Tick-tock, the choice is yours!</v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="blue-darken-1"
-            variant="text"
-            @click="state.deleteDialog = false"
-          >
+      <DialogContent class="pt-10">
+        <DialogHeader>
+          <DialogTitle class="text-left">
+            Are you sure you want to delete "{{ state.deleteItemName }}"?
+          </DialogTitle>
+          <DialogDescription>
+            This action cannot be undone. {{ state.deleteItemName }} will be permanently deleted.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter class="pt-2 flex justify-between">
+          <edge-shad-button class="text-white bg-slate-800 hover:bg-slate-400" @click="state.deleteDialog = false">
             Cancel
-          </v-btn>
-          <v-btn
-            type="submit"
-            color="error"
-            variant="text"
-            @click="deleteAction()"
-          >
+          </edge-shad-button>
+          <edge-shad-button variant="destructive" class="text-white w-full" @click="deleteAction()">
             Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </v-card>
+          </edge-shad-button>
+        </DialogFooter>
+      </DialogContent>
+    </edge-shad-dialog>
+  </edge-v-card>
 </template>
 
 <style lang="scss" scoped>

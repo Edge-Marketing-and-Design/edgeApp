@@ -1,10 +1,10 @@
 <script setup>
 // TODO : ADD CODE FOR NOTIFICATIONS AND DEEP LINKING
-import { useTheme } from 'vuetify'
-const vueTheme = useTheme()
-const changeTheme = (theme) => {
-  vueTheme.global.name.value = theme
-}
+// import { useTheme } from 'vuetify'
+// const vueTheme = useTheme()
+// const changeTheme = (theme) => {
+//   vueTheme.global.name.value = theme
+// }
 const edgeFirebase = inject('edgeFirebase')
 // const edgeGlobal = inject('edgeGlobal')
 
@@ -67,12 +67,12 @@ watch (user, async () => {
 const colorMode = useColorMode()
 onMounted(() => {
   colorMode.preference = 'system'
-  if (edgeGlobal.isDarkMode()) {
-    changeTheme('dark')
-  }
-  else {
-    changeTheme('light')
-  }
+  // if (edgeGlobal.isDarkMode()) {
+  //   changeTheme('dark')
+  // }
+  // else {
+  //   changeTheme('light')
+  // }
 })
 edgeFirebase.runFunction('edgeFirebase-initFirestore', {})
 edgeGlobal.edgeState.userRoles = [
@@ -111,38 +111,39 @@ const menuItems = [
 </script>
 
 <template>
-  <v-app>
-    <Toaster />
-    <div class="flex flex-col h-screen">
-      <edge-menu v-if="edgeFirebase.user.loggedIn" class="bg-slate-300 dark:bg-slate-900" :menu-items="menuItems">
-        <template #start>
-          <Package class="h-6 w-6 mr-2" />
-          <h1 class="text-xl font-bold">
-            {{ orgName }}
-          </h1>
-        </template>
-      </edge-menu>
-      <div class="w-full h-full">
-        <NuxtPage />
-      </div>
-      <edge-menu
-        v-if="edgeFirebase.user.loggedIn"
-        type="footer"
-        button-class="text-slate-500"
-        nav-class="justify-end mr-8"
-        class="bg-slate-800"
-        :menu-items="menuItems"
-      >
-        <template #start>
-          <div class="text-xs text-muted-foreground">
-            Copyright {{ new Date().getFullYear() }}
-          </div>
-        </template>
-      </edge-menu>
+  <Toaster />
+  <div class="flex flex-col h-screen">
+    <edge-menu v-if="edgeFirebase.user.loggedIn" type="header" nav-class="justify-start" class="bg-slate-300 dark:bg-slate-900" :menu-items="menuItems">
+      <template #start>
+        <Package class="h-6 w-6 mr-2" />
+        <h1 class="text-xl font-bold">
+          {{ orgName }}
+        </h1>
+      </template>
+    </edge-menu>
+    <div class="w-full h-full">
+      <NuxtPage />
     </div>
-  </v-app>
+    <edge-menu
+      v-if="edgeFirebase.user.loggedIn"
+      type="footer"
+      button-class="text-slate-500"
+      nav-class="justify-end mr-8"
+      class="bg-slate-800"
+      :menu-items="menuItems"
+    >
+      <template #start>
+        <div class="text-xs text-muted-foreground">
+          Copyright {{ new Date().getFullYear() }}
+        </div>
+      </template>
+    </edge-menu>
+  </div>
 </template>
 
 <style lang="scss">
 .firebase-emulator-warning { display: none; }
+html, body {
+  overflow: hidden;
+}
 </style>

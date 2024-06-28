@@ -1,4 +1,6 @@
 <script setup>
+import { toTypedSchema } from '@vee-validate/zod'
+import * as z from 'zod'
 const route = useRoute()
 const router = useRouter()
 // const edgeGlobal = inject('edgeGlobal')
@@ -11,8 +13,8 @@ const state = reactive({
       subthings: { bindings: { 'field-type': 'collection', 'label': 'Subthings', 'helper': 'Subthings', 'collection-path': 'subthings' }, cols: '12', value: '' },
     },
     subthings: {
-      name: { bindings: { 'field-type': 'text', 'label': 'Name', 'helper': 'Name' }, cols: '12', value: '' },
-      test: { bindings: { 'field-type': 'boolean', 'label': 'Description', 'helper': 'Test' }, cols: '12', value: '' },
+      name: { bindings: { 'field-type': 'text', 'label': 'Name', 'helper': 'Name' }, cols: '6', value: '' },
+      test: { bindings: { 'field-type': 'boolean', 'label': 'Description', 'helper': 'Test' }, cols: '6', value: '' },
       selectTest: { bindings: { 'field-type': 'select', 'label': 'Select', 'helper': 'Select', 'items': ['test1', 'test2', 'test3'] }, cols: '12', value: '' },
       testtextarea: { bindings: { 'field-type': 'textarea', 'label': 'Test Textarea', 'helper': 'Textarea' }, cols: '12', value: '' },
       arrayThing: { bindings: { 'field-type': 'array', 'label': 'Array', 'helper': 'Array' }, cols: '12', value: [] },
@@ -27,6 +29,19 @@ const state = reactive({
     },
   },
 })
+
+const schemas = {
+  things: toTypedSchema(z.object({
+    name: z.string({
+      required_error: 'Name is required',
+    }).min(1, { message: 'Name is required' }),
+  })),
+  subthings: toTypedSchema(z.object({
+    name: z.string({
+      required_error: 'Name is required',
+    }).min(1, { message: 'Name is required' }),
+  })),
+}
 
 const page = computed(() => {
   return route.params.page
@@ -60,7 +75,7 @@ onMounted(() => {
     class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
     <dashboard v-if="page === 'dashboard' && docId === ''" :collection="collection" />
-    <editor v-else-if="page === 'dashboard' && docId !== ''" :collection="collection" :doc-id="docId" :new-doc-schema="state.newDocs[collection]" />
+    <editor v-else-if="page === 'dashboard' && docId !== ''" :collection="collection" :doc-id="docId" :schema="schemas[collection]" :new-doc-schema="state.newDocs[collection]" />
     <account v-else-if="page === 'account'" />
   </div>
 </template>

@@ -1,4 +1,5 @@
 <script setup>
+// TODO: CREATE DASHBOARD AND EDITOR COMPONENTS
 const props = defineProps({
   docId: {
     type: String,
@@ -11,6 +12,11 @@ const props = defineProps({
   newDocSchema: {
     type: Object,
     required: true,
+  },
+  schema: {
+    type: Object,
+    required: false,
+    default: () => ({}),
   },
 })
 
@@ -67,13 +73,13 @@ const discardChanges = async () => {
   if (props.docId === 'new') {
     state.bypassUnsavedChanges = true
     edgeGlobal.edgeState.changeTracker = {}
-    router.push('/app/dashboard')
+    router.push(`/app/dashboard/${props.collection}`)
     return
   }
   state.workingDoc = await edgeGlobal.dupObject(edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${props.collection}`][props.docId])
   state.bypassUnsavedChanges = true
   edgeGlobal.edgeState.changeTracker = {}
-  router.push('/app/dashboard')
+  router.push(`/app/dashboard/${props.collection}`)
 }
 
 const capitalizeFirstLetter = (str) => {
@@ -107,16 +113,11 @@ const title = computed(() => {
   }
 })
 
-const onSubmit = async (event) => {
-  const results = await event
-  if (results.valid) {
-    console.log('submitting')
-    console.log(state.workingDoc)
-    state.bypassUnsavedChanges = true
-    edgeFirebase.storeDoc(`${edgeGlobal.edgeState.organizationDocPath}/${props.collection}`, state.workingDoc)
-    edgeGlobal.edgeState.changeTracker = {}
-    router.push(`/app/dashboard/${props.collection}`)
-  }
+const onSubmit = async () => {
+  state.bypassUnsavedChanges = true
+  edgeFirebase.storeDoc(`${edgeGlobal.edgeState.organizationDocPath}/${props.collection}`, state.workingDoc)
+  edgeGlobal.edgeState.changeTracker = {}
+  router.push(`/app/dashboard/${props.collection}`)
 }
 
 onBeforeMount(async () => {
@@ -150,30 +151,45 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
 </script>
 
 <template>
-  <v-card v-if="state.afterMount" class="mx-auto" max-width="1200">
-    <v-form
+  <edge-v-card v-if="state.afterMount" class="m-auto bg-muted/50" max-width="1200">
+    <edge-shad-form
       v-model="state.form"
-      validate-on="submit"
+      :schema="props.schema"
       @submit.prevent="onSubmit"
     >
-      <v-toolbar flat>
-        <v-icon class="mx-4">
-          mdi-atom-variant
-        </v-icon>
-
-        {{ title }}
-        <v-spacer />
-        <v-btn
-          type="submit"
-          color="primary"
-          variant="text"
-        >
-          Save
-        </v-btn>
-      </v-toolbar>
-      <v-card-text>
-        <v-row>
-          <v-col v-for="(field, name, index) in props.newDocSchema" :key="index" :cols="field.cols">
+      <edge-menu>
+        <template #start>
+          <FilePenLine class="mr-2" />
+          {{ title }}
+        </template>
+        <template #end>
+          <edge-shad-button
+            v-if="!unsavedChanges"
+            :to="`/app/dashboard/${props.collection}`"
+            class="uppercase h-8 hover:bg-slate-400 w-20"
+            variant="destructive"
+          >
+            Close
+          </edge-shad-button>
+          <edge-shad-button
+            v-else
+            :to="`/app/dashboard/${props.collection}`"
+            class="uppercase h-8 hover:bg-slate-400 w-20"
+            variant="destructive"
+          >
+            Cancel
+          </edge-shad-button>
+          <edge-shad-button
+            type="submit"
+            class="bg-slate-500  uppercase h-8 hover:bg-slate-400 w-20"
+          >
+            Save
+          </edge-shad-button>
+        </template>
+      </edge-menu>
+      <edge-v-card-text>
+        <edge-v-row>
+          <edge-v-col v-for="(field, name, index) in props.newDocSchema" :key="index" :cols="field.cols">
             <edge-g-input
               v-if="field.bindings['field-type'] !== 'collection'"
               v-model="state.workingDoc[name]"
@@ -192,58 +208,57 @@ watch(() => edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/${pro
               :name="name"
               :parent-tracker-id="`${props.collection}-${props.docId}`"
             />
-          </v-col>
-        </v-row>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
+          </edge-v-col>
+        </edge-v-row>
+      </edge-v-card-text>
+      <edge-v-card-actions>
+        <edge-shad-button
           v-if="!unsavedChanges"
-          color="secondary"
-          variant="text"
-          to="/app/dashboard"
+          :to="`/app/dashboard/${props.collection}`"
+          class="uppercase h-8 hover:bg-slate-400 w-20"
+          variant="destructive"
         >
           Close
-        </v-btn>
-        <v-btn
+        </edge-shad-button>
+        <edge-shad-button
           v-else
-          color="secondary"
-          variant="text"
-          to="/app/dashboard"
+          :to="`/app/dashboard/${props.collection}`"
+          class="uppercase h-8 hover:bg-slate-400 w-20"
+          variant="destructive"
         >
           Cancel
-        </v-btn>
+        </edge-shad-button>
 
-        <v-btn
+        <edge-shad-button
           type="submit"
-          color="primary"
-          variant="text"
+          class="bg-slate-500  uppercase h-8 hover:bg-slate-400 w-20"
         >
           Save
-        </v-btn>
-      </v-card-actions>
-    </v-form>
-  </v-card>
-  <v-dialog v-model="state.dialog" max-width="500px">
-    <v-card>
-      <v-card-title class="headline">
-        Unsaved Changes!
-      </v-card-title>
-      <v-card-text>
-        <h4>"{{ title }}" has unsaved changes.</h4>
-        <p>Are you sure you want to discard them?</p>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn color="blue darken-1" text @click="state.dialog = false">
+        </edge-shad-button>
+      </edge-v-card-actions>
+    </edge-shad-form>
+  </edge-v-card>
+  <edge-shad-dialog v-model="state.dialog" max-width="500px">
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>
+          Unsaved Changes!
+        </DialogTitle>
+        <DialogDescription>
+          <h4>"{{ title }}" has unsaved changes.</h4>
+          <p>Are you sure you want to discard them?</p>
+        </DialogDescription>
+      </DialogHeader>
+      <DialogFooter class="pt-2 flex justify-between">
+        <edge-shad-button class="text-white bg-slate-800 hover:bg-slate-400" @click="state.dialog = false">
           Cancel
-        </v-btn>
-        <v-btn color="error" text @click="discardChanges()">
+        </edge-shad-button>
+        <edge-shad-button variant="destructive" class="text-white w-full" @click="discardChanges()">
           Discard
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+        </edge-shad-button>
+      </DialogFooter>
+    </DialogContent>
+  </edge-shad-dialog>
 </template>
 
 <style lang="scss" scoped>
