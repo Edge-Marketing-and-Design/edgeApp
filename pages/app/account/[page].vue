@@ -43,7 +43,7 @@ definePageMeta({
 
 onMounted(() => {
   if (!route.params.page) {
-    router.push('/app/account/my-account')
+    // router.push('/app/account/my-account')
   }
 })
 
@@ -64,7 +64,7 @@ const page = computed(() => {
         <edge-my-profile v-if="page === 'my-profile'" :form-schema="metaSchema" :meta-fields="metaFields" />
         <edge-organization-members v-if="page === 'organization-members'" />
         <edge-my-organizations v-if="page === 'my-organizations'" :registration-code="config.public.registrationCode" />
-        <billing v-if="page === 'subscription'" />
+        <edge-billing v-if="page === 'subscription'" />
       </Card>
     </div>
   </div>

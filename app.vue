@@ -121,8 +121,17 @@ const menuItems = [
         </h1>
       </template>
     </edge-menu>
-    <div class="w-full h-full">
-      <NuxtPage />
+    <div class="flex h-full">
+      <div class="h-full">
+        <edge-side-menu
+          v-if="edgeFirebase.user.loggedIn"
+          :menu-items="menuItems"
+          class="bg-slate-600"
+        />
+      </div>
+      <div class="grow h-full">
+        <NuxtPage />
+      </div>
     </div>
     <edge-menu
       v-if="edgeFirebase.user.loggedIn"
