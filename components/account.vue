@@ -53,7 +53,7 @@ const state = reactive({
 })
 
 onBeforeMount(() => {
-  site.value = route.params.collection
+  site.value = route.params.page
 })
 </script>
 
