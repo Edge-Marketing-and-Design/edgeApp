@@ -28,8 +28,7 @@ export default defineNuxtConfig({
   },
   components: {
     dirs: [
-      { path: '~/components/formSubtypes', global: true, prefix: 'form-subtypes' },
-      // { path: '~/edge/components/formSubtypes', global: true, prefix: 'form-subtypes' },
+      { path: '~/components/formSubtypes', global: true, prefix: 'edge-form-subtypes' },
       { path: '~/edge/components', global: true, prefix: 'edge' },
       '~/components',
     ],
