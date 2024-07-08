@@ -75,7 +75,7 @@ onMounted(() => {
   >
     <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection">
       <template #header-start>
-        <Box class="mr-2" />
+        <LayoutDashboard class="mr-2" />
         <span class="capitalize">{{ collection }}</span>
       </template>
       <template #header-center>

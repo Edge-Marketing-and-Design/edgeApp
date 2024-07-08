@@ -100,7 +100,7 @@ const menuItems = [
   {
     title: 'Dashboard',
     to: '/app/dashboard/things',
-    icon: 'Braces',
+    icon: 'LayoutDashboard',
   },
   {
     title: 'Sub Things',
