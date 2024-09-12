@@ -63,7 +63,7 @@ definePageMeta({
 onMounted(() => {
   if (!route.params.collection) {
     // If making a static collection route, this onMounted should be removed
-    router.push('/app/dashboard/sites')
+    router.push('/app/dashboard/things')
   }
 })
 </script>

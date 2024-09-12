@@ -18,6 +18,7 @@ import {
   Grip,
   Group,
   Info,
+  LayoutDashboard,
   List,
   ListPlus,
   Loader2,
@@ -67,4 +68,5 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('FilePenLine', FilePenLine)
   nuxtApp.vueApp.component('List', List)
   nuxtApp.vueApp.component('Copy', Copy)
+  nuxtApp.vueApp.component('LayoutDashboard', LayoutDashboard)
 })
