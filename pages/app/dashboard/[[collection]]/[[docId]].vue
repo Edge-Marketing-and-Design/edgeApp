@@ -5,6 +5,8 @@ const route = useRoute()
 const router = useRouter()
 // const edgeGlobal = inject('edgeGlobal')
 
+const edgeFirebase = inject('edgeFirebase')
+
 const state = reactive({
   filter: '',
   newDocs: {
@@ -70,7 +72,7 @@ onMounted(() => {
 
 <template>
   <div
-    v-if="edgeGlobal.edgeState.organizationDocPath"
+    v-if="edgeFirebase?.user?.loggedIn"
     class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
     <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection">

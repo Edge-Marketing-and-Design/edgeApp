@@ -3,6 +3,7 @@ import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 const route = useRoute()
 const router = useRouter()
+const edgeFirebase = inject('edgeFirebase')
 // const edgeGlobal = inject('edgeGlobal')
 const metaFields = [
   {
@@ -54,7 +55,7 @@ const page = computed(() => {
 
 <template>
   <div
-    v-if="edgeGlobal.edgeState.organizationDocPath"
+    v-if="edgeFirebase?.user?.loggedIn"
     class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
     <div class="gap-2 h-full w-full justify-items-center">
