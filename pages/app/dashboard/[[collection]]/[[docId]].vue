@@ -50,7 +50,7 @@ const collection = computed(() => {
   if (route.params.collection) {
     return route.params.collection
   }
-  return 'things'
+  return ''
 })
 const docId = computed(() => {
   if (route.params.docId) {
@@ -75,7 +75,7 @@ onMounted(() => {
     v-if="edgeFirebase?.user?.loggedIn"
     class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
-    <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection">
+    <edge-dashboard v-if="docId === '' && collection !== ''" :filter="state.filter" :collection="collection">
       <template #header-start>
         <LayoutDashboard class="mr-2" />
         <span class="capitalize">{{ collection }}</span>
