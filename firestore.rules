@@ -31,6 +31,14 @@ service cloud.firestore {
     allow update: if false; 
     allow delete: if false; 
   }
+
+
+  match /databases/{database}/documents/system/{event} {
+    allow read: if false;
+    allow create: if false;  
+    allow update: if false; 
+    allow delete: if false; 
+  }
   
   match /databases/{database}/documents/rule-helpers/{helper} {
     allow read: if false;
@@ -56,11 +64,14 @@ service cloud.firestore {
 
   match /databases/{database}/documents/collection-data/{collectionPath} {
     // TODO: these rules need tested.
-    function getRolePermission(role, collection, permissionCheck) {
-        let pathCollectionPermissions = get(/databases/$(database)/documents/collection-data/$(collection)).data;
-        let defaultPermissions = get(/databases/$(database)/documents/collection-data/-default-).data;
-        return (role in pathCollectionPermissions && pathCollectionPermissions[role][permissionCheck]) ||
-              (role in defaultPermissions && defaultPermissions[role][permissionCheck]);
+    function getRolePermission(role, permissionCheck) {
+        let permissions = {
+          'admin': {'assign': true, 'delete': true, 'read': true, 'write': true},
+          'editor': {'assign': false, 'delete': true, 'read': true, 'write': true},
+          'user': {'assign': false, 'delete': false, 'read': true, 'write': false},
+          'writer': {'assign': false, 'delete': false, 'read': true, 'write': true}
+        };
+        return permissions[role][permissionCheck];
     }
     function canAssign() {
       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
@@ -76,7 +87,7 @@ service cloud.firestore {
         "roles" in user && 
         ruleHelper[collectionPath].permissionCheckPath in user.roles &&
         "role" in user.roles[ruleHelper[collectionPath].permissionCheckPath] &&
-         getRolePermission(user.roles[ruleHelper[collectionPath].permissionCheckPath].role, collectionPath, "assign")
+         getRolePermission(user.roles[ruleHelper[collectionPath].permissionCheckPath].role, "assign")
       );
     }
     allow read: if request.auth != null; // All signed in users can read collection-data
@@ -141,7 +152,7 @@ service cloud.firestore {
               (
                 (
                   "roles" in user &&
-                  getRolePermission(user.roles[permissionCheckPath].role, permissionCheckPath, "assign")
+                  getRolePermission(user.roles[permissionCheckPath].role, "assign")
                 ) ||
                 (
                   "specialPermissions" in user &&
@@ -160,7 +171,7 @@ service cloud.firestore {
               (
                 "roles" in user &&
                 ruleHelper["edge-assignment-helper"].permissionCheckPath in user.roles &&
-                getRolePermission(user.roles[ruleHelper["edge-assignment-helper"].permissionCheckPath].role, ruleHelper["edge-assignment-helper"].permissionCheckPath, 'assign')
+                getRolePermission(user.roles[ruleHelper["edge-assignment-helper"].permissionCheckPath].role, 'assign')
               ) ||
               (
                 "specialPermissions" in user &&
@@ -188,7 +199,7 @@ service cloud.firestore {
                 (
                   "roles" in user &&
                   permissionCheckPath in user.roles &&
-                  getRolePermission(user.roles[permissionCheckPath].role, permissionCheckPath, "assign")
+                  getRolePermission(user.roles[permissionCheckPath].role, "assign")
                 ) ||
                 (
                   "specialPermissions" in user &&
@@ -216,12 +227,15 @@ service cloud.firestore {
       return request.resource.data.roles.size() == 0 && request.resource.data.specialPermissions.size() == 0;
     }
 
-    function getRolePermission(role, collection, permissionCheck) {
-        let pathCollectionPermissions = get(/databases/$(database)/documents/collection-data/$(collection)).data;
-        let defaultPermissions = get(/databases/$(database)/documents/collection-data/-default-).data;
-        return (role in pathCollectionPermissions && pathCollectionPermissions[role][permissionCheck]) ||
-              (role in defaultPermissions && defaultPermissions[role][permissionCheck]);
-      }
+    function getRolePermission(role, permissionCheck) {
+        let permissions = {
+          'admin': {'assign': true, 'delete': true, 'read': true, 'write': true},
+          'editor': {'assign': false, 'delete': true, 'read': true, 'write': true},
+          'user': {'assign': false, 'delete': false, 'read': true, 'write': false},
+          'writer': {'assign': false, 'delete': false, 'read': true, 'write': true}
+        };
+        return permissions[role][permissionCheck];
+     }
 
      function canGet () {
        return resource == null || 
@@ -237,11 +251,14 @@ service cloud.firestore {
   }
 
   match /databases/{database}/documents/{seg1} {
-      function getRolePermission(role, collection, permissionCheck) {
-        let pathCollectionPermissions = get(/databases/$(database)/documents/collection-data/$(collection)).data;
-        let defaultPermissions = get(/databases/$(database)/documents/collection-data/-default-).data;
-        return (role in pathCollectionPermissions && pathCollectionPermissions[role][permissionCheck]) ||
-              (role in defaultPermissions && defaultPermissions[role][permissionCheck]);
+      function getRolePermission(role, permissionCheck) {
+        let permissions = {
+          'admin': {'assign': true, 'delete': true, 'read': true, 'write': true},
+          'editor': {'assign': false, 'delete': true, 'read': true, 'write': true},
+          'user': {'assign': false, 'delete': false, 'read': true, 'write': false},
+          'writer': {'assign': false, 'delete': false, 'read': true, 'write': true}
+        };
+        return permissions[role][permissionCheck];
       }
       function checkPermission(collectionPath, permissionCheck) {
           let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
@@ -251,7 +268,9 @@ service cloud.firestore {
                  !(permissionCheck == "write" && 
                     (
                       ("stripeCustomerId" in request.resource.data && (!("stripeCustomerId" in resource.data) || resource.data.stripeCustomerId != request.resource.data.stripeCustomerId)) ||
-                      ("stripeSubscription" in request.resource.data && (!("stripeSubscription" in resource.data) || resource.data.stripeSubscription != request.resource.data.stripeSubscription))
+                      ("stripeSubscription" in request.resource.data && (!("stripeSubscription" in resource.data) || resource.data.stripeSubscription != request.resource.data.stripeSubscription)) ||
+                      ("stripeProductId" in request.resource.data && (!("stripeProductId" in resource.data) || resource.data.stripeProductId != request.resource.data.stripeProductId)) ||
+                      ("stripePriceId" in request.resource.data && (!("stripePriceId" in resource.data) || resource.data.stripePriceId != request.resource.data.stripePriceId))
                     )
                   ) &&
                   request.auth != null &&
@@ -265,7 +284,7 @@ service cloud.firestore {
                     (
                       "roles" in user &&
                       ruleHelper[collectionPath].permissionCheckPath in user.roles &&
-                      getRolePermission(user.roles[ruleHelper[collectionPath].permissionCheckPath].role, ruleHelper[collectionPath].permissionCheckPath, permissionCheck)
+                      getRolePermission(user.roles[ruleHelper[collectionPath].permissionCheckPath].role, permissionCheck)
                     ) ||
                     (
                       "specialPermissions" in user &&
