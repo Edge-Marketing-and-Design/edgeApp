@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ports=(9099 4000 5001 8080 5025 9199)
+ports=(9099 4000 5001 8080 5025 9199 8085)
 for port in "${ports[@]}"; do
   pid=$(lsof -ti :$port)
   if [ ! -z "$pid" ]; then
