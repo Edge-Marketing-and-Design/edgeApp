@@ -1,9 +1,13 @@
 export default defineNuxtRouteMiddleware(async () => {
-// EDGE START
+  // EDGE START
   const preLoginRoute = useState('preLoginRoute')
+
   if (!preLoginRoute.value) {
-    preLoginRoute.value = window.location.pathname
+    // Save both pathname and query string
+    const { pathname, search } = window.location
+    preLoginRoute.value = `${pathname}${search}`
   }
+
   const auth: any = useState('auth')
   if (auth.value) {
     if (!auth.value.loggedIn) {
@@ -13,5 +17,5 @@ export default defineNuxtRouteMiddleware(async () => {
   else {
     return '/app/login'
   }
-// EDGE END
+  // EDGE END
 })
