@@ -22,3 +22,6 @@ logs
 edgeFirebaseFramework
 edge
 pnpm-lock.yaml
+functions/*
+storage.rules*
+firestore.rules*
