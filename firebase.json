@@ -5,6 +5,7 @@
   },
   "functions": [
     {
+      "region": "us-west2",
       "source": "functions",
       "codebase": "default",
       "ignore": [
