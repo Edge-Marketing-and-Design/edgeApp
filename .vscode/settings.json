@@ -3,7 +3,7 @@
     "*.json": "json"
   },
   "[json]": {
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": true
   },
   "editor.formatOnSave": false,
   "vetur.validation.template": false,

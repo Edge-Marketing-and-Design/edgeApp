@@ -145,7 +145,7 @@ const menuItems = [
               <SidebarTrigger />
             </div>
             <div>
-              <edge-user-menu :title="orgName" button-class="w-8 h-8 bg-secondary" icon-class="w-6 h-6" />
+              <edge-user-menu :title="orgName" button-class="w-8 h-8" icon-class="w-6 h-6" />
             </div>
           </div>
           <NuxtPage keepalive />
