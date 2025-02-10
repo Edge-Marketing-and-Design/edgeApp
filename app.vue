@@ -113,27 +113,46 @@ const menuItems = [
 <template>
   <Toaster />
   <div class="flex flex-col h-screen">
-    <edge-menu v-if="edgeFirebase.user.loggedIn" type="header" nav-class="justify-start" class="bg-slate-300 dark:bg-slate-900" :menu-items="menuItems">
+    <!-- <edge-menu v-if="edgeFirebase.user.loggedIn" type="header" nav-class="justify-start" class="bg-slate-300 dark:bg-slate-900" :menu-items="menuItems">
       <template #start>
         <Package class="h-6 w-6 mr-2" />
         <h1 class="text-xl font-bold">
           {{ orgName }}
         </h1>
       </template>
-    </edge-menu>
+    </edge-menu> -->
     <div class="flex h-full">
-      <div class="h-full">
-        <edge-side-menu
-          v-if="edgeFirebase.user.loggedIn"
-          :menu-items="menuItems"
-          class="bg-slate-600"
-        />
-      </div>
-      <div class="grow h-full">
-        <NuxtPage />
-      </div>
+      <SidebarProvider>
+        <div class="h-full">
+          <edge-side-menu
+            v-if="edgeFirebase.user.loggedIn"
+            :menu-items="menuItems"
+          >
+            <template #header>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton style="padding-left: 4px !important;">
+                    <Package class="!h-6 !w-6" /> <span class="text-xl">{{ orgName }}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </template>
+          </edge-side-menu>
+        </div>
+        <div class="grow h-full">
+          <div class="flex justify-between p-1">
+            <div>
+              <SidebarTrigger />
+            </div>
+            <div>
+              <edge-user-menu :title="orgName" button-class="w-8 h-8 bg-secondary" icon-class="w-6 h-6" />
+            </div>
+          </div>
+          <NuxtPage keepalive />
+        </div>
+      </SidebarProvider>
     </div>
-    <edge-menu
+    <!-- <edge-menu
       v-if="edgeFirebase.user.loggedIn"
       type="footer"
       button-class="text-slate-500"
@@ -146,7 +165,7 @@ const menuItems = [
           Copyright {{ new Date().getFullYear() }}
         </div>
       </template>
-    </edge-menu>
+    </edge-menu> -->
   </div>
 </template>
 
