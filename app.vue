@@ -49,6 +49,14 @@ watch(currentOrganization, async () => {
   }
 })
 
+const currentOrg = computed(() => edgeFirebase.data[`organizations/${edgeGlobal.edgeState.currentOrganization}`])
+
+watch (currentOrg, async () => {
+  if (currentOrg.value) {
+    edgeGlobal.edgeState = subscribedStatus(currentOrg.value)
+  }
+}, { immediate: true }, { deep: true })
+
 const orgName = computed(() => {
   const org = edgeGlobal.edgeState.organizations.find(org => org.docId === edgeGlobal.edgeState.currentOrganization)
   return org?.name
@@ -137,12 +145,28 @@ const menuItems = [
                 </SidebarMenuItem>
               </SidebarMenu>
             </template>
+            <template #footer="slotProps">
+              <Card v-if="slotProps.sideBarState === 'expanded'">
+                <CardHeader class="p-2 pt-0 md:p-4">
+                  <CardTitle>Upgrade to Pro</CardTitle>
+                  <CardDescription>
+                    Unlock all features and get unlimited access to our support
+                    team.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent class="p-2 pt-0 md:p-4 md:pt-0">
+                  <Button size="sm" class="w-full">
+                    Upgrade
+                  </Button>
+                </CardContent>
+              </Card>
+            </template>
           </edge-side-menu>
         </div>
         <div class="grow h-full">
           <div class="flex justify-between p-1">
             <div>
-              <SidebarTrigger />
+              <!-- possible breadcrumbs -->
             </div>
             <div>
               <edge-user-menu :title="orgName" button-class="w-8 h-8" icon-class="w-6 h-6" />
