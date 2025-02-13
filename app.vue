@@ -169,7 +169,7 @@ const menuItems = [
               <!-- possible breadcrumbs -->
             </div>
             <div>
-              <edge-user-menu :title="orgName" button-class="w-8 h-8" icon-class="w-6 h-6" />
+              <edge-user-menu v-if="edgeFirebase.user.loggedIn" :title="orgName" button-class="w-8 h-8" icon-class="w-6 h-6" />
             </div>
           </div>
           <NuxtPage keepalive />

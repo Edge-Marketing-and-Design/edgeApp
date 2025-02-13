@@ -1,6 +1,6 @@
 {
   "name": "@edgedev/create-edge-app",
-  "version": "1.0.58",
+  "version": "1.0.59",
   "description": "Create Edge Starter App",
   "bin": {
     "create-edge-app": "./bin/cli.js"
