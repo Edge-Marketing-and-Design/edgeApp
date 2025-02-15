@@ -73,9 +73,8 @@ onMounted(() => {
 <template>
   <div
     v-if="edgeFirebase?.user?.loggedIn"
-    class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
-    <edge-dashboard v-if="docId === '' && collection !== ''" :filter="state.filter" :collection="collection">
+    <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection" class="flex-1">
       <template #header-start>
         <LayoutDashboard class="mr-2" />
         <span class="capitalize">{{ collection }}</span>
@@ -126,6 +125,7 @@ onMounted(() => {
       :doc-id="docId"
       :schema="schemas[collection]"
       :new-doc-schema="state.newDocs[collection]"
+      class="w-full max-w-7xl mx-auto flex-1"
     >
       <template #header-start="slotProps">
         <FilePenLine class="mr-2" />

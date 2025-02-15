@@ -121,15 +121,7 @@ const menuItems = [
 <template>
   <Toaster />
   <div class="flex flex-col h-screen">
-    <!-- <edge-menu v-if="edgeFirebase.user.loggedIn" type="header" nav-class="justify-start" class="bg-slate-300 dark:bg-slate-900" :menu-items="menuItems">
-      <template #start>
-        <Package class="h-6 w-6 mr-2" />
-        <h1 class="text-xl font-bold">
-          {{ orgName }}
-        </h1>
-      </template>
-    </edge-menu> -->
-    <div class="flex h-full">
+    <div class="flex h-full w-full">
       <SidebarProvider>
         <div class="h-full">
           <edge-side-menu
@@ -163,33 +155,37 @@ const menuItems = [
             </template>
           </edge-side-menu>
         </div>
-        <div class="grow h-full">
-          <div class="flex justify-between p-1">
-            <div>
-              <!-- possible breadcrumbs -->
-            </div>
-            <div>
-              <edge-user-menu v-if="edgeFirebase.user.loggedIn" :title="orgName" button-class="w-8 h-8" icon-class="w-6 h-6" />
-            </div>
-          </div>
-          <NuxtPage keepalive />
+        <div class="grow h-full flex flex-col h-screen">
+          <edge-menu
+            v-if="edgeFirebase.user.loggedIn"
+            type="nav"
+            nav-class="justify-left mr-8"
+            :menu-items="menuItems"
+          >
+            <template #start>
+              <SidebarTrigger class="-ml-2 mr-2 h-4 w-4" />
+              <Package class="h-6 w-6 mr-2" />
+              <h1 class="text-xl font-bold">
+                {{ orgName }}
+              </h1>
+            </template>
+          </edge-menu>
+          <NuxtPage class="flex-1 flex flex-col overflow-y-auto p-3" keepalive />
+          <edge-menu
+            v-if="edgeFirebase.user.loggedIn"
+            type="footer"
+            nav-class="justify-end mr-8"
+            :menu-items="menuItems"
+          >
+            <template #start>
+              <div class="text-xs text-muted-foreground">
+                Copyright {{ new Date().getFullYear() }}
+              </div>
+            </template>
+          </edge-menu>
         </div>
       </SidebarProvider>
     </div>
-    <!-- <edge-menu
-      v-if="edgeFirebase.user.loggedIn"
-      type="footer"
-      button-class="text-slate-500"
-      nav-class="justify-end mr-8"
-      class="bg-slate-800"
-      :menu-items="menuItems"
-    >
-      <template #start>
-        <div class="text-xs text-muted-foreground">
-          Copyright {{ new Date().getFullYear() }}
-        </div>
-      </template>
-    </edge-menu> -->
   </div>
 </template>
 

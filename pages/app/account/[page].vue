@@ -56,17 +56,14 @@ const page = computed(() => {
 <template>
   <div
     v-if="edgeFirebase?.user?.loggedIn"
-    class="p-3 w-full h-[calc(100vh-118px)] overflow-y-auto"
   >
-    <div class="gap-2 h-full w-full justify-items-center">
-      <Card class="w-full h-full bg-muted/50 max-w-7xl m-auto pt-3">
-        <edge-organization-settings v-if="page === 'organization-settings'" :form-schema="orgSchema" :org-fields="orgFields" />
-        <edge-my-account v-if="page === 'my-account'" />
-        <edge-my-profile v-if="page === 'my-profile'" :form-schema="metaSchema" :meta-fields="metaFields" />
-        <edge-organization-members v-if="page === 'organization-members'" />
-        <edge-my-organizations v-if="page === 'my-organizations'" :registration-code="config.public.registrationCode" />
-        <edge-billing v-if="page === 'subscription'" />
-      </Card>
-    </div>
+    <Card class="w-full flex-1 bg-muted/50 max-w-7xl m-auto ">
+      <edge-organization-settings v-if="page === 'organization-settings'" :subscribe-options="subscribeOptions" :form-schema="orgSchema" :org-fields="orgFields" />
+      <edge-my-account v-if="page === 'my-account'" />
+      <edge-my-profile v-if="page === 'my-profile'" :form-schema="metaSchema" :meta-fields="metaFields" />
+      <edge-organization-members v-if="page === 'organization-members'" />
+      <edge-my-organizations v-if="page === 'my-organizations'" :registration-code="config.public.registrationCode" />
+      <edge-billing v-if="page === 'subscription'" />
+    </Card>
   </div>
 </template>
