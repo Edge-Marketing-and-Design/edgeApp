@@ -57,7 +57,7 @@ const page = computed(() => {
   <div
     v-if="edgeFirebase?.user?.loggedIn"
   >
-    <Card class="w-full flex-1 bg-muted/50 max-w-7xl m-auto ">
+    <Card class="w-full flex-1 bg-muted/50 m-auto">
       <edge-organization-settings v-if="page === 'organization-settings'" :subscribe-options="subscribeOptions" :form-schema="orgSchema" :org-fields="orgFields" />
       <edge-my-account v-if="page === 'my-account'" />
       <edge-my-profile v-if="page === 'my-profile'" :form-schema="metaSchema" :meta-fields="metaFields" />
