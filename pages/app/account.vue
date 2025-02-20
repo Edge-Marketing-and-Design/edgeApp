@@ -63,7 +63,7 @@ const menuItems = [
             </template>
           </edge-side-menu>
         </div>
-        <NuxtPage class="flex-1 flex flex-col overflow-y-auto p-3" keepalive />
+        <NuxtPage class="flex-1 flex flex-col overflow-y-auto p-3" />
       </SidebarProvider>
     </div>
   </div>
