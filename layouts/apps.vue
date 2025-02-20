@@ -69,12 +69,6 @@ watch (user, async () => {
 const colorMode = useColorMode()
 onMounted(() => {
   colorMode.preference = 'system'
-  // if (edgeGlobal.isDarkMode()) {
-  //   changeTheme('dark')
-  // }
-  // else {
-  //   changeTheme('light')
-  // }
 })
 edgeFirebase.runFunction('edgeFirebase-initFirestore', {})
 edgeGlobal.edgeState.userRoles = [
@@ -116,11 +110,17 @@ const menuItems = [
   <Toaster />
   <div class="flex flex-col h-screen">
     <div class="flex h-full w-full">
-      <SidebarProvider>
+      <edge-sidebar-provider
+        v-slot="sideBarProviderProps"
+        enable-nested-menu
+        collapsible="slack"
+      >
         <div class="h-full">
-          <edge-side-menu
+          <edge-side-bar
             v-if="edgeFirebase.user.loggedIn"
             :menu-items="menuItems"
+            :collapsible="sideBarProviderProps.collapsible"
+            class="border-solid border-r"
           >
             <template #header>
               <SidebarMenu>
@@ -147,7 +147,10 @@ const menuItems = [
                 </CardContent>
               </Card>
             </template>
-          </edge-side-menu>
+            <template #nested-menu>
+              <slot name="nested-menu" />
+            </template>
+          </edge-side-bar>
         </div>
         <div class="grow h-full flex flex-col h-screen">
           <edge-menu
@@ -164,7 +167,7 @@ const menuItems = [
               </h1>
             </template>
           </edge-menu>
-          <NuxtPage class="flex-1 flex flex-col overflow-y-auto p-3" keepalive />
+          <slot />
           <edge-menu
             v-if="edgeFirebase.user.loggedIn"
             type="footer"
@@ -178,7 +181,7 @@ const menuItems = [
             </template>
           </edge-menu>
         </div>
-      </SidebarProvider>
+      </edge-sidebar-provider>
     </div>
   </div>
 </template>
