@@ -107,6 +107,10 @@ const menuItems = [
 </script>
 
 <template>
+  <Head>
+    <title>Edge App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  </Head>
   <Toaster />
   <div class="flex flex-col h-screen">
     <div class="flex h-full w-full">
