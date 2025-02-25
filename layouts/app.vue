@@ -104,6 +104,30 @@ const menuItems = [
     icon: 'Package',
   },
 ]
+
+const slots = useSlots()
+const hasLeftPanel = computed(() => {
+  const leftPanelSlot = slots['left-panel']
+  if (!leftPanelSlot) {
+    return false
+  }
+  const slotContent = leftPanelSlot()
+  return slotContent.length > 0 && slotContent.some(node => node.children && node.children.length > 0)
+})
+
+const leftPanelDefaultSize = computed(() => {
+  if (hasLeftPanel.value) {
+    return 20
+  }
+  return 0
+})
+
+const mainPanelDefaultSize = computed(() => {
+  if (hasLeftPanel.value) {
+    return 80
+  }
+  return 100
+})
 </script>
 
 <template>
@@ -156,35 +180,37 @@ const menuItems = [
             </template>
           </edge-side-bar>
         </div>
-        <div class="grow h-full flex flex-col h-screen">
-          <edge-menu
-            v-if="edgeFirebase.user.loggedIn"
-            type="nav"
-            nav-class="justify-left mr-8"
-            :menu-items="menuItems"
-          >
-            <template #start>
-              <SidebarTrigger class="-ml-2 mr-2 h-4 w-4" />
-              <Package class="h-6 w-6 mr-2" />
-              <h1 class="text-xl font-bold">
-                {{ orgName }}
-              </h1>
-            </template>
-          </edge-menu>
-          <slot />
-          <edge-menu
-            v-if="edgeFirebase.user.loggedIn"
-            type="footer"
-            nav-class="justify-end mr-8"
-            :menu-items="menuItems"
-          >
-            <template #start>
-              <div class="text-xs text-muted-foreground">
-                Copyright {{ new Date().getFullYear() }}
-              </div>
-            </template>
-          </edge-menu>
-        </div>
+        <ResizablePanelGroup
+          direction="horizontal"
+          class="h-full w-full"
+        >
+          <ResizablePanel class="bg-sidebar text-sidebar-foreground" :default-size="leftPanelDefaultSize">
+            <slot name="left-panel" />
+          </ResizablePanel>
+          <ResizableHandle v-if="hasLeftPanel" with-handle />
+          <ResizablePanel :default-size="mainPanelDefaultSize">
+            <div class="grow h-full flex flex-col h-screen">
+              <edge-menu
+                v-if="edgeFirebase.user.loggedIn"
+                type="nav"
+                nav-class="justify-left"
+                class="px-1 border-none"
+              >
+                <template #start>
+                  <edge-shad-button
+                    v-show="edgeGlobal.edgeState.sidebar.isMobile"
+                    variant="icon"
+                    class="p-1"
+                    @click="edgeGlobal.edgeState.sidebar.toggleSidebar"
+                  >
+                    <MenuSquare />
+                  </edge-shad-button>
+                </template>
+              </edge-menu>
+              <slot />
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </edge-sidebar-provider>
     </div>
   </div>

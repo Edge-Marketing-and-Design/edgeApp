@@ -1,6 +1,8 @@
 import {
+  AlertCircle,
   ArrowLeft,
   ArrowRight,
+  BookImage,
   Box,
   Braces,
   Brackets,
@@ -8,30 +10,42 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
+  ChevronLeftCircle,
   ChevronRight,
+  ChevronRightCircle,
+  ChevronUp,
   ChevronsUpDown,
   CircleUser,
   Copy,
   Eye,
   EyeOff,
   FilePenLine,
+  Fullscreen,
   Grip,
   Group,
-  Info,
-  LayoutDashboard,
+  Hourglass,
+  Image,
+  Info, LayoutDashboard,
   List,
   ListPlus,
   Loader2,
-  LogOut, MoreHorizontal,
+  LogOut,
+  MenuSquare,
+  MoreHorizontal,
+  Newspaper,
   Package,
+  PauseCircle,
   Pencil,
   PlusIcon,
   Settings,
   Settings2,
   Trash,
   TrashIcon,
+  Upload,
   User,
   Users,
+  X,
+  ZoomIn,
 } from 'lucide-vue-next'
 
 export default defineNuxtPlugin((nuxtApp) => {
@@ -50,6 +64,7 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('EyeOff', EyeOff)
   nuxtApp.vueApp.component('CircleUser', CircleUser)
   nuxtApp.vueApp.component('Group', Group)
+  nuxtApp.vueApp.component('Hourglass', Hourglass)
   nuxtApp.vueApp.component('Settings', Settings)
   nuxtApp.vueApp.component('Users', Users)
   nuxtApp.vueApp.component('Settings2', Settings2)
@@ -65,8 +80,21 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('Box', Box)
   nuxtApp.vueApp.component('LogOut', LogOut)
   nuxtApp.vueApp.component('Info', Info)
+  nuxtApp.vueApp.component('Image', Image)
   nuxtApp.vueApp.component('FilePenLine', FilePenLine)
   nuxtApp.vueApp.component('List', List)
   nuxtApp.vueApp.component('Copy', Copy)
   nuxtApp.vueApp.component('LayoutDashboard', LayoutDashboard)
+  nuxtApp.vueApp.component('Upload', Upload)
+  nuxtApp.vueApp.component('X', X)
+  nuxtApp.vueApp.component('ZoomIn', ZoomIn)
+  nuxtApp.vueApp.component('Newspaper', Newspaper)
+  nuxtApp.vueApp.component('BookImage', BookImage)
+  nuxtApp.vueApp.component('AlertCircle', AlertCircle)
+  nuxtApp.vueApp.component('PauseCircle', PauseCircle)
+  nuxtApp.vueApp.component('ChevronUp', ChevronUp)
+  nuxtApp.vueApp.component('ChevronLeftCircle', ChevronLeftCircle)
+  nuxtApp.vueApp.component('ChevronRightCircle', ChevronRightCircle)
+  nuxtApp.vueApp.component('Fullscreen', Fullscreen)
+  nuxtApp.vueApp.component('MenuSquare', MenuSquare)
 })
