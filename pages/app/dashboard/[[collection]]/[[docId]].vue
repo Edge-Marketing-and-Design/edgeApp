@@ -71,69 +71,90 @@ onMounted(() => {
 </script>
 
 <template>
-  <NuxtLayout name="app">
-    <div
-      v-if="edgeGlobal.edgeState.organizationDocPath"
-      class="flex-1 flex flex-col overflow-y-auto p-3 pt-0"
-    >
-      <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection" class="flex-1">
-        <template #header-start>
-          <LayoutDashboard class="mr-2" />
-          <span class="capitalize">{{ collection }}</span>
-        </template>
-        <template #header-center>
-          <div class="w-full px-6">
-            <edge-shad-input
-              v-model="state.filter"
-              label=""
-              name="filter"
-              placeholder="Filter..."
-            />
+  <div
+    v-if="edgeGlobal.edgeState.organizationDocPath"
+  >
+    <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection" class="flex-1">
+      <template #header-start>
+        <LayoutDashboard class="mr-2" />
+        <span class="capitalize">{{ collection }}</span>
+      </template>
+      <template #header-center>
+        <div class="w-full px-6">
+          <edge-shad-input
+            v-model="state.filter"
+            label=""
+            name="filter"
+            placeholder="Filter..."
+          />
+        </div>
+      </template>
+      <template #header-end="slotProps">
+        <edge-shad-button class="uppercase bg-slate-600" :to="`/app/dashboard/${collection}/new`">
+          Add {{ slotProps.title }}
+        </edge-shad-button>
+      </template>
+      <template #list-item="slotProps">
+        <edge-shad-button variant="text" class="cursor-pointer w-full flex justify-between slotProps.items-center py-2 gap-3" :to="`/app/dashboard/${collection}/${slotProps.item.docId}`">
+          <div>
+            <Avatar class="cursor-pointer p-0 h-8 w-8 mr-2">
+              <FilePenLine class="h-5 w-5" />
+            </Avatar>
           </div>
-        </template>
-        <template #header-end="slotProps">
-          <edge-shad-button class="uppercase bg-slate-600" :to="`/app/dashboard/${collection}/new`">
-            Add {{ slotProps.title }}
-          </edge-shad-button>
-        </template>
-        <template #list-item="slotProps">
-          <edge-shad-button variant="text" class="cursor-pointer w-full flex justify-between slotProps.items-center py-2 gap-3" :to="`/app/dashboard/${collection}/${slotProps.item.docId}`">
-            <div>
-              <Avatar class="cursor-pointer p-0 h-8 w-8 mr-2">
-                <FilePenLine class="h-5 w-5" />
-              </Avatar>
+          <div class="grow text-left">
+            <div class="text-lg">
+              {{ slotProps.item.name }}
             </div>
-            <div class="grow text-left">
-              <div class="text-lg">
-                {{ slotProps.item.name }}
-              </div>
-            </div>
-            <div>
-              <edge-shad-button
-                size="icon"
-                class="bg-slate-600 h-7 w-7"
-                @click.stop="slotProps.deleteItem(slotProps.item.docId)"
-              >
-                <Trash class="h-5 w-5" />
-              </edge-shad-button>
-            </div>
-          </edge-shad-button>
-          <Separator class="dark:bg-slate-600" />
-        </template>
-      </edge-dashboard>
-      <edge-editor
-        v-else
-        :collection="collection"
-        :doc-id="docId"
-        :schema="schemas[collection]"
-        :new-doc-schema="state.newDocs[collection]"
-        class="w-full max-w-7xl mx-auto flex-1"
-      >
-        <template #header-start="slotProps">
-          <FilePenLine class="mr-2" />
-          {{ slotProps.title }}
-        </template>
-        <template #header-end="slotProps">
+          </div>
+          <div>
+            <edge-shad-button
+              size="icon"
+              class="bg-slate-600 h-7 w-7"
+              @click.stop="slotProps.deleteItem(slotProps.item.docId)"
+            >
+              <Trash class="h-5 w-5" />
+            </edge-shad-button>
+          </div>
+        </edge-shad-button>
+        <Separator class="dark:bg-slate-600" />
+      </template>
+    </edge-dashboard>
+    <edge-editor
+      v-else
+      :collection="collection"
+      :doc-id="docId"
+      :schema="schemas[collection]"
+      :new-doc-schema="state.newDocs[collection]"
+      class="w-full max-w-7xl mx-auto flex-1"
+    >
+      <template #header-start="slotProps">
+        <FilePenLine class="mr-2" />
+        {{ slotProps.title }}
+      </template>
+      <template #header-end="slotProps">
+        <edge-shad-button
+          v-if="!slotProps.unsavedChanges"
+          :to="`/app/dashboard/${collection}`"
+          class="bg-red-700 uppercase h-8 hover:bg-slate-400 w-20"
+        >
+          Close
+        </edge-shad-button>
+        <edge-shad-button
+          v-else
+          :to="`/app/dashboard/${collection}`"
+          class="bg-red-700 uppercase h-8 hover:bg-slate-400 w-20"
+        >
+          Cancel
+        </edge-shad-button>
+        <edge-shad-button
+          type="submit"
+          class="bg-slate-500 uppercase h-8 hover:bg-slate-400 w-20"
+        >
+          Save
+        </edge-shad-button>
+      </template>
+      <template #footer="slotProps">
+        <div class="flex w-full gap-1 items-center justify-end">
           <edge-shad-button
             v-if="!slotProps.unsavedChanges"
             :to="`/app/dashboard/${collection}`"
@@ -148,39 +169,15 @@ onMounted(() => {
           >
             Cancel
           </edge-shad-button>
+
           <edge-shad-button
             type="submit"
             class="bg-slate-500 uppercase h-8 hover:bg-slate-400 w-20"
           >
             Save
           </edge-shad-button>
-        </template>
-        <template #footer="slotProps">
-          <div class="flex w-full gap-1 items-center justify-end">
-            <edge-shad-button
-              v-if="!slotProps.unsavedChanges"
-              :to="`/app/dashboard/${collection}`"
-              class="bg-red-700 uppercase h-8 hover:bg-slate-400 w-20"
-            >
-              Close
-            </edge-shad-button>
-            <edge-shad-button
-              v-else
-              :to="`/app/dashboard/${collection}`"
-              class="bg-red-700 uppercase h-8 hover:bg-slate-400 w-20"
-            >
-              Cancel
-            </edge-shad-button>
-
-            <edge-shad-button
-              type="submit"
-              class="bg-slate-500 uppercase h-8 hover:bg-slate-400 w-20"
-            >
-              Save
-            </edge-shad-button>
-          </div>
-        </template>
-      </edge-editor>
-    </div>
-  </NuxtLayout>
+        </div>
+      </template>
+    </edge-editor>
+  </div>
 </template>

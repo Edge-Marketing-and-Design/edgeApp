@@ -9,7 +9,4 @@
 
 <style lang="scss">
 .firebase-emulator-warning { display: none; }
-html, body {
-  overflow: hidden;
-}
 </style>
