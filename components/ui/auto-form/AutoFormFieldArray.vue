@@ -1,16 +1,16 @@
 <script setup lang="ts" generic="T extends z.ZodAny">
-import * as z from 'zod'
-import { computed, provide } from 'vue'
+import type { Config, ConfigItem } from './interface'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '~/components/ui/accordion'
+import { Button } from '~/components/ui/button'
+import { FormItem, FormMessage } from '~/components/ui/form'
+import { Separator } from '~/components/ui/separator'
 import { PlusIcon, TrashIcon } from 'lucide-vue-next'
 import { FieldArray, FieldContextKey, useField } from 'vee-validate'
-import type { Config, ConfigItem } from './interface'
-import { beautifyObjectName, getBaseType } from './utils'
+import { computed, provide } from 'vue'
+import * as z from 'zod'
 import AutoFormField from './AutoFormField.vue'
 import AutoFormLabel from './AutoFormLabel.vue'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import { FormItem, FormMessage } from '@/components/ui/form'
+import { beautifyObjectName, getBaseType } from './utils'
 
 const props = defineProps<{
   fieldName: string
@@ -86,7 +86,7 @@ provide(FieldContextKey, fieldContext)
                       <TrashIcon :size="16" />
                     </Button>
                   </div>
-                  <Separator v-if="!field.isLast" class="dark:bg-slate-600" />
+                  <Separator v-if="!field.isLast" />
                 </div>
               </template>
 

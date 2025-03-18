@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { type HTMLAttributes, computed } from 'vue'
+import { cn } from '~/lib/utils'
+import { Circle } from 'lucide-vue-next'
 import {
   MenubarItemIndicator,
   MenubarRadioItem,
   type MenubarRadioItemEmits,
   type MenubarRadioItemProps,
   useForwardPropsEmits,
-} from 'radix-vue'
-import { Circle } from 'lucide-vue-next'
-import { cn } from '@/lib/utils'
+} from 'reka-ui'
+import { computed, type HTMLAttributes } from 'vue'
 
 const props = defineProps<MenubarRadioItemProps & { class?: HTMLAttributes['class'] }>()
 const emits = defineEmits<MenubarRadioItemEmits>()

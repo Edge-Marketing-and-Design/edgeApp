@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import type { FieldProps } from './interface'
+import { Button } from '~/components/ui/button'
+import { FormControl, FormDescription, FormField, FormItem, FormMessage } from '~/components/ui/form'
+import { Input } from '~/components/ui/input'
 import { TrashIcon } from 'lucide-vue-next'
+import { ref } from 'vue'
 import AutoFormLabel from './AutoFormLabel.vue'
 import { beautifyObjectName } from './utils'
-import type { FieldProps } from './interface'
-import { FormControl, FormDescription, FormField, FormItem, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 
 defineProps<FieldProps>()
 
@@ -39,7 +39,7 @@ async function parseFileAsString(file: File | undefined): Promise<string> {
             v-if="!inputFile"
             type="file"
             v-bind="{ ...config?.inputProps }"
-            :disabled="disabled"
+            :disabled="config?.inputProps?.disabled ?? disabled"
             @change="async (ev: InputEvent) => {
               const file = (ev.target as HTMLInputElement).files?.[0]
               inputFile = file

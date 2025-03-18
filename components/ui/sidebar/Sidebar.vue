@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import { SIDEBAR_WIDTH_MOBILE, useSidebar } from './utils'
 import type { SidebarProps } from '.'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { cn } from '@/lib/utils'
+import { cn } from '~/lib/utils'
+import { Sheet, SheetContent } from '~/components/ui/sheet'
+import { SIDEBAR_WIDTH_MOBILE, useSidebar } from './utils'
+
+defineOptions({
+  inheritAttrs: false,
+})
 
 const props = withDefaults(defineProps<SidebarProps>(), {
   side: 'left',
   variant: 'sidebar',
   collapsible: 'offcanvas',
-})
-
-defineOptions({
-  inheritAttrs: false,
 })
 
 const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
@@ -31,7 +31,7 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       data-sidebar="sidebar"
       data-mobile="true"
       :side="side"
-      :class="cn('w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden', props.class)"
+      class="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
       :style="{
         '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
       }"

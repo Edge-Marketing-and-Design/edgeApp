@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { type HTMLAttributes, computed } from 'vue'
+import { cn } from '~/lib/utils'
 import {
   ContextMenuContent,
   type ContextMenuContentEmits,
   type ContextMenuContentProps,
   ContextMenuPortal,
   useForwardPropsEmits,
-} from 'radix-vue'
-import { cn } from '@/lib/utils'
+} from 'reka-ui'
+import { computed, type HTMLAttributes } from 'vue'
 
 const props = defineProps<ContextMenuContentProps & { class?: HTMLAttributes['class'] }>()
 const emits = defineEmits<ContextMenuContentEmits>()
