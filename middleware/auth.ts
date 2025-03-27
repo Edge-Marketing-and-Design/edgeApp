@@ -8,14 +8,19 @@ export default defineNuxtRouteMiddleware(async () => {
     preLoginRoute.value = `${pathname}${search}`
   }
 
+  const firstSection = window.location.pathname.split('/')[1] || ''
+  const loginPath = `/${firstSection}/login`
+  console.log('loginPath', loginPath)
+
   const auth: any = useState('auth')
+
   if (auth.value) {
     if (!auth.value.loggedIn) {
-      return '/app/login'
+      return loginPath
     }
   }
   else {
-    return '/app/login'
+    return loginPath
   }
   // EDGE END
 })
