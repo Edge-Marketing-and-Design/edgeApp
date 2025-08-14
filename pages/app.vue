@@ -8,10 +8,69 @@ const currentOrganization = computed(() => {
   return edgeGlobal.edgeState.currentOrganization
 })
 
+const menuBuilder = () => {
+  const orgDocPath = `organizations/${currentOrganization.value}`
+  const orgRole = edgeFirebase?.user?.roles.find(role =>
+    role.collectionPath === orgDocPath.replaceAll('/', '-'),
+  )
+  const isOrgUserAdmin = orgRole && orgRole.role === 'admin'
+
+  edgeGlobal.edgeState.menuItems = [
+    {
+      title: 'Dashboard',
+      to: '/app/dashboard/things',
+      icon: 'LayoutDashboard',
+    },
+    {
+      title: 'Sub Things',
+      to: '/app/dashboard/subthings',
+      icon: 'Package',
+    },
+    {
+      title: 'Settings',
+      to: '/app/account/my-profile',
+      icon: 'Settings',
+      submenu: [
+        {
+          title: 'Profile',
+          to: '/app/account/my-profile',
+          icon: 'User',
+        },
+        {
+          title: 'Account',
+          to: '/app/account/my-account',
+          icon: 'CircleUser',
+        },
+        {
+          title: 'Orgs',
+          to: '/app/account/my-organizations',
+          icon: 'Group',
+        },
+        {
+          title: 'Org',
+          to: '/app/account/organization-settings',
+          icon: 'Settings',
+          override: isOrgUserAdmin,
+        },
+        {
+          title: 'Users',
+          to: '/app/account/organization-members',
+          icon: 'Users',
+          override: isOrgUserAdmin,
+        },
+      ],
+    },
+  ]
+}
+
 watch(currentOrganization, async () => {
   if (currentOrganization.value) {
     // RUN STUFF HERE WHEN ORGANIZATION CHANGES LIKE SNAPSHOTS
     await projectSetOrg(currentOrganization.value, edgeFirebase, edgeGlobal)
+
+    const orgDocPath = `organizations/${currentOrganization.value}`
+    edgeGlobal.edgeState.isAdminCollections = [`organizations-${orgDocPath}`]
+    menuBuilder()
 
     // KEEP THIS CODE:
     const auth = useState('auth')
@@ -147,7 +206,7 @@ edgeGlobal.edgeState.userRoles = [
   },
 ]
 
-const menuItems = [
+edgeGlobal.edgeState.menuItems = [
   {
     title: 'Dashboard',
     to: '/app/dashboard/things',
@@ -177,9 +236,10 @@ const menuItems = [
         <div class="h-full">
           <edge-side-bar
             v-if="edgeFirebase.user.loggedIn"
-            :menu-items="menuItems"
+            :menu-items="edgeGlobal.edgeState.menuItems"
             :collapsible="sideBarProviderProps.collapsible"
             class="border-solid border-r"
+            :show-settings-section="false"
           >
             <template #header>
               <SidebarMenu>
@@ -233,6 +293,7 @@ const menuItems = [
                   >
                     <MenuSquare />
                   </edge-shad-button>
+                  <div id="page-header" />
                 </template>
               </edge-menu>
               <NuxtPage class="flex-1 flex flex-col overflow-y-auto p-3 pt-0" />
