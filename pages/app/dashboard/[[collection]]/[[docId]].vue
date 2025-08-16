@@ -62,10 +62,40 @@ definePageMeta({
   middleware: 'auth',
 })
 
+const isAdmin = computed(() => {
+  return edgeGlobal.isAdminGlobal(edgeFirebase).value
+})
+
+const toBool = v => v === true || v === 'true' || v === 1 || v === '1'
+
+const allowMenuItem = (item) => {
+  const isDev = config.public.developmentMode
+  const adminOnly = toBool(item.adminOnly)
+  const devOnly = toBool(item.devOnly)
+  const override = toBool(item.override)
+  if (item.override !== undefined)
+    return override
+  if (adminOnly && !isAdmin.value)
+    return false
+  if (devOnly && !isDev)
+    return false
+  return true
+}
+
 onMounted(() => {
   if (!route.params.collection) {
-    // If making a static collection route, this onMounted should be removed
-    router.push('/app/dashboard/things')
+    const menuItems = edgeGlobal.edgeState.menuItems
+      .filter(allowMenuItem)
+      .map(item => ({
+        ...item,
+        submenu: Array.isArray(item.submenu)
+          ? item.submenu.filter(allowMenuItem)
+          : item.submenu,
+      }))
+    const firstTop = (menuItems && menuItems.length) ? menuItems[0] : null
+    if (firstTop && typeof firstTop.to === 'string' && firstTop.to.length) {
+      router.replace(firstTop.to)
+    }
   }
 })
 </script>
