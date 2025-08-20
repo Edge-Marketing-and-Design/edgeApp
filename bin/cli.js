@@ -38,6 +38,29 @@ const modifyPackageJson = (repoName) => {
   return true
 }
 
+const cleanGitignore = (repoName) => {
+  try {
+    const gitignorePath = path.join(repoName, '.gitignore')
+    const gitignoreData = fs.readFileSync(gitignorePath, 'utf-8')
+    const lines = gitignoreData.split('\n')
+
+    const markerIndex = lines.findIndex(line => line.trim() === '# Remove these after install:')
+    if (markerIndex !== -1) {
+      const cleanedLines = lines.slice(0, markerIndex)
+      fs.writeFileSync(gitignorePath, cleanedLines.join('\n'))
+      console.log('.gitignore cleaned successfully')
+    }
+    else {
+      console.log('No cleanup marker found in .gitignore')
+    }
+  }
+  catch (err) {
+    console.error('Failed to clean .gitignore', err)
+    return false
+  }
+  return true
+}
+
 const repoName = process.argv[2]
 
 const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
@@ -61,6 +84,12 @@ if (!removedGitDir) {
 console.log(`Modifying package.json for ${repoName}...`)
 const modifiedPackageJson = modifyPackageJson(repoName)
 if (!modifiedPackageJson) {
+  process.exit(1)
+}
+
+console.log(`Cleaning .gitignore for ${repoName}...`)
+const cleanedGitignore = cleanGitignore(repoName)
+if (!cleanedGitignore) {
   process.exit(1)
 }
 
