@@ -222,8 +222,10 @@ edgeGlobal.edgeState.menuItems = [
 
 <template>
   <Head>
-    <title>Edge App</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <Title>Edge App</Title>
+    <Meta name="apple-mobile-web-app-capable" content="yes" />
+    <Meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <Meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
   </Head>
   <Toaster />
   <div class="flex flex-col h-[calc(100vh+200px)]">
