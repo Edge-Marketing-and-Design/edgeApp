@@ -105,3 +105,10 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Fix: stop Uno's per-property `translate:` from stacking with Tailwind's `transform` */
+.fixed.left-1\/2.top-1\/2.-translate-x-1\/2.-translate-y-1\/2 {
+  translate: initial !important;     /* or `none` */
+  --un-translate-x: initial !important;
+  --un-translate-y: initial !important;
+}
