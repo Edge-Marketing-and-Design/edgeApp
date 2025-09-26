@@ -1,6 +1,7 @@
 <script setup>
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
+
 const route = useRoute()
 const router = useRouter()
 // const edgeGlobal = inject('edgeGlobal')
@@ -66,30 +67,14 @@ const isAdmin = computed(() => {
   return edgeGlobal.isAdminGlobal(edgeFirebase).value
 })
 
-const toBool = v => v === true || v === 'true' || v === 1 || v === '1'
-
-const allowMenuItem = (item) => {
-  const isDev = config.public.developmentMode
-  const adminOnly = toBool(item.adminOnly)
-  const devOnly = toBool(item.devOnly)
-  const override = toBool(item.override)
-  if (item.override !== undefined)
-    return override
-  if (adminOnly && !isAdmin.value)
-    return false
-  if (devOnly && !isDev)
-    return false
-  return true
-}
-
 onMounted(() => {
   if (!route.params.collection) {
     const menuItems = edgeGlobal.edgeState.menuItems
-      .filter(allowMenuItem)
+      .filter(item => edgeGlobal.allowMenuItem(item, isAdmin.value))
       .map(item => ({
         ...item,
         submenu: Array.isArray(item.submenu)
-          ? item.submenu.filter(allowMenuItem)
+          ? item.submenu.filter(subItem => edgeGlobal.allowMenuItem(subItem, isAdmin.value))
           : item.submenu,
       }))
     const firstTop = (menuItems && menuItems.length) ? menuItems[0] : null
@@ -104,19 +89,21 @@ onMounted(() => {
   <div
     v-if="edgeGlobal.edgeState.organizationDocPath"
   >
-    <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection" class="flex-1">
+    <edge-dashboard v-if="docId === ''" :filter="state.filter" :collection="collection" class="flex-1 pt-0">
       <template #header-start>
         <LayoutDashboard class="mr-2" />
         <span class="capitalize">{{ collection }}</span>
       </template>
       <template #header-center>
         <div class="w-full px-6">
-          <edge-shad-input
-            v-model="state.filter"
-            label=""
-            name="filter"
-            placeholder="Filter..."
-          />
+          <edge-shad-form>
+            <edge-shad-input
+              v-model="state.filter"
+              label=""
+              name="filter"
+              placeholder="Filter..."
+            />
+          </edge-shad-form>
         </div>
       </template>
       <template #header-end="slotProps">
@@ -155,7 +142,7 @@ onMounted(() => {
       :doc-id="docId"
       :schema="schemas[collection]"
       :new-doc-schema="state.newDocs[collection]"
-      class="w-full max-w-7xl mx-auto flex-1"
+      class="w-full max-w-7xl mx-auto flex-1 pt-0 px-0"
     >
       <template #header-start="slotProps">
         <FilePenLine class="mr-2" />

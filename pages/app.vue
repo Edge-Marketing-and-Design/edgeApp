@@ -1,7 +1,6 @@
 <script setup>
+import { Menu } from 'lucide-vue-next'
 const edgeFirebase = inject('edgeFirebase')
-// const edgeGlobal = inject('edgeGlobal')
-
 const route = useRoute()
 
 const currentOrganization = computed(() => {
@@ -25,6 +24,18 @@ const menuBuilder = () => {
       title: 'Sub Things',
       to: '/app/dashboard/subthings',
       icon: 'Package',
+    },
+    {
+      title: 'Admin Only', // Example of an admin only menu item
+      to: '/app/dashboard/subthings',
+      icon: 'Package',
+      adminOnly: true,
+    },
+    {
+      title: 'Dev Only', // Example of a dev only menu item
+      to: '/app/dashboard/subthings',
+      icon: 'Package',
+      devOnly: true,
     },
     {
       title: 'Settings',
@@ -69,6 +80,11 @@ watch(currentOrganization, async () => {
     await projectSetOrg(currentOrganization.value, edgeFirebase, edgeGlobal)
 
     const orgDocPath = `organizations/${currentOrganization.value}`
+
+    // If we want other users to "appear" as admins for admin only menu items
+    // we need to add them as admin to a least one subcollection of the organization
+    // and then add that collection to isAdminCollections example:
+    // edgeGlobal.edgeState.isAdminCollections = [`${orgDocPath}-offices`]
     edgeGlobal.edgeState.isAdminCollections = [`organizations-${orgDocPath}`]
     menuBuilder()
 
@@ -108,7 +124,7 @@ const currentOrg = computed(() => edgeFirebase.data[`organizations/${edgeGlobal.
 
 watch (currentOrg, async () => {
   if (currentOrg.value) {
-    edgeGlobal.edgeState = subscribedStatus(currentOrg.value)
+    // edgeGlobal.edgeState = subscribedStatus(currentOrg.value)
   }
 }, { immediate: true }, { deep: true })
 
@@ -244,16 +260,12 @@ edgeGlobal.edgeState.menuItems = [
             :show-settings-section="false"
           >
             <template #header>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton style="padding-left: 4px !important;">
-                    <Package class="!h-6 !w-6" /> <span class="text-xl">{{ orgName }}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
+              <div class="flex items-center justify-center w-full">
+                <img src="/images/logo-square.png" class="w-auto h-14" alt="Edge Logo">
+              </div>
             </template>
-            <template #footer="slotProps">
-              <Card v-if="slotProps.sideBarState === 'expanded'">
+            <template #footer>
+              <!-- <Card v-if="slotProps.sideBarState === 'expanded'">
                 <CardHeader class="p-2 pt-0 md:p-4">
                   <CardTitle>Upgrade to Pro</CardTitle>
                   <CardDescription>
@@ -266,7 +278,7 @@ edgeGlobal.edgeState.menuItems = [
                     Upgrade
                   </Button>
                 </CardContent>
-              </Card>
+              </Card> -->
             </template>
           </edge-side-bar>
         </div>
@@ -293,7 +305,7 @@ edgeGlobal.edgeState.menuItems = [
                     class="p-1"
                     @click="edgeGlobal.edgeState.sidebar.toggleSidebar"
                   >
-                    <MenuSquare />
+                    <Menu class="!w-[40px] !h-[40px]" />
                   </edge-shad-button>
                   <div id="page-header" />
                 </template>

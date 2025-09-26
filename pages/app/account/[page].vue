@@ -62,24 +62,30 @@ const page = computed(() => {
       :subscribe-options="subscribeOptions"
       :form-schema="orgSchema"
       :org-fields="orgFields"
+      class="pt-0"
     />
     <edge-my-account
       v-if="page === 'my-account'"
+      class="pt-0"
     />
     <edge-my-profile
       v-if="page === 'my-profile'"
       :form-schema="metaSchema"
       :meta-fields="metaFields"
+      class="pt-0"
     />
     <edge-organization-members
       v-if="page === 'organization-members'"
+      class="pt-0"
     />
     <edge-my-organizations
       v-if="page === 'my-organizations'"
       :registration-code="config.public.registrationCode"
+      class="pt-0"
     />
     <edge-billing
       v-if="page === 'subscription'"
+      class="pt-0"
     />
   </div>
 </template>
