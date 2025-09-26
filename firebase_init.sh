@@ -61,7 +61,9 @@ echo "VITE_FIREBASE_MEASUREMENT_ID=$measurement_id" >> .env
 echo "VITE_FIREBASE_EMULATOR_AUTH=" >> .env
 echo "VITE_FIREBASE_EMULATOR_FIRESTORE=" >> .env
 echo "VITE_FIREBASE_EMULATOR_FUNCTIONS=" >> .env
+echo "VITE_FIREBASE_EMULATOR_STORAGE=" >> .env
 echo "REGISTRATION_CODE=organization-registration-template" >> .env
+echo "DEVELOPMENT_MODE=false" >> .env
 
 # Create the .env.dev file
 echo "VITE_FIREBASE_API_KEY=$api_key" > .env.dev
@@ -74,4 +76,6 @@ echo "VITE_FIREBASE_MEASUREMENT_ID=$measurement_id" >> .env.dev
 echo "VITE_FIREBASE_EMULATOR_AUTH=9099" >> .env.dev
 echo "VITE_FIREBASE_EMULATOR_FIRESTORE=8080" >> .env.dev
 echo "VITE_FIREBASE_EMULATOR_FUNCTIONS=5001" >> .env.dev
+echo "VITE_FIREBASE_EMULATOR_STORAGE=9199" >> .env.dev
 echo "REGISTRATION_CODE=organization-registration-template" >> .env.dev
+echo "DEVELOPMENT_MODE=true" >> .env.dev

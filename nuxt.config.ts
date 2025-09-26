@@ -4,6 +4,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       registrationCode: process.env.REGISTRATION_CODE,
+      developmentMode: process.env.DEVELOPMENT_MODE === 'true',
     },
   },
   app: {
