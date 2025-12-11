@@ -1,11 +1,19 @@
 import {
   AlertCircle,
+  AlignHorizontalJustifyStart,
   ArrowLeft,
   ArrowRight,
+  Award,
+  BadgeCheck,
+  Blocks,
+  Bold,
   BookImage,
+  BookOpen,
+  Bot,
   Box,
   Braces,
   Brackets,
+  Building,
   CalendarIcon,
   Check,
   ChevronDown,
@@ -16,34 +24,72 @@ import {
   ChevronUp,
   ChevronsUpDown,
   CircleUser,
+  CircleX,
+  CloudUpload,
+  Code,
   Copy,
+  Download,
   Eye,
   EyeOff,
+  File,
+  FileCode2,
+  FileImage,
   FilePenLine,
+  FilePlus2,
+  FileSpreadsheet,
+  FileText,
+  FolderOpen,
+  FolderTree,
   Fullscreen,
+  Globe,
   Grip,
   Group,
+  Heading1,
+  Heading2,
+  Heading3,
+  Heading4,
   Hourglass,
   Image,
-  Info, LayoutDashboard,
+  Inbox,
+  Info,
+  Italic,
+  Layers3,
+  LayoutDashboard,
+  LayoutList,
+  LayoutPanelTop,
+  Link,
   List,
+  ListOrdered,
   ListPlus,
   Loader2,
   LogOut,
+  Menu,
   MenuSquare,
   MoreHorizontal,
   Newspaper,
   Package,
+  Paintbrush,
   PauseCircle,
   Pencil,
   PlusIcon,
+  Printer,
+  Save,
   Settings,
   Settings2,
+  SquareCode,
+  StickyNote,
+  Store,
+  Strikethrough,
+  TextQuote,
   Trash,
   TrashIcon,
+  TriangleAlert,
+  Underline,
   Upload,
   User,
+  UserCheck,
   Users,
+  View,
   X,
   ZoomIn,
 } from 'lucide-vue-next'
@@ -97,4 +143,49 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('ChevronRightCircle', ChevronRightCircle)
   nuxtApp.vueApp.component('Fullscreen', Fullscreen)
   nuxtApp.vueApp.component('MenuSquare', MenuSquare)
+  nuxtApp.vueApp.component('Blocks', Blocks)
+  nuxtApp.vueApp.component('LayoutPanelTop', LayoutPanelTop)
+  nuxtApp.vueApp.component('Building', Building)
+  nuxtApp.vueApp.component('Store', Store)
+  nuxtApp.vueApp.component('UserCheck', UserCheck)
+  nuxtApp.vueApp.component('Award', Award)
+  nuxtApp.vueApp.component('BadgeCheck', BadgeCheck)
+  nuxtApp.vueApp.component('BookOpen', BookOpen)
+  nuxtApp.vueApp.component('AlignHorizontalJustifyStart', AlignHorizontalJustifyStart)
+  nuxtApp.vueApp.component('Bold', Bold)
+  nuxtApp.vueApp.component('Bot', Bot)
+  nuxtApp.vueApp.component('CircleX', CircleX)
+  nuxtApp.vueApp.component('CloudUpload', CloudUpload)
+  nuxtApp.vueApp.component('Code', Code)
+  nuxtApp.vueApp.component('Download', Download)
+  nuxtApp.vueApp.component('File', File)
+  nuxtApp.vueApp.component('FileCode2', FileCode2)
+  nuxtApp.vueApp.component('FileImage', FileImage)
+  nuxtApp.vueApp.component('FilePlus2', FilePlus2)
+  nuxtApp.vueApp.component('FileSpreadsheet', FileSpreadsheet)
+  nuxtApp.vueApp.component('FileText', FileText)
+  nuxtApp.vueApp.component('FolderOpen', FolderOpen)
+  nuxtApp.vueApp.component('FolderTree', FolderTree)
+  nuxtApp.vueApp.component('Globe', Globe)
+  nuxtApp.vueApp.component('Heading1', Heading1)
+  nuxtApp.vueApp.component('Heading2', Heading2)
+  nuxtApp.vueApp.component('Heading3', Heading3)
+  nuxtApp.vueApp.component('Heading4', Heading4)
+  nuxtApp.vueApp.component('Inbox', Inbox)
+  nuxtApp.vueApp.component('Italic', Italic)
+  nuxtApp.vueApp.component('Layers3', Layers3)
+  nuxtApp.vueApp.component('LayoutList', LayoutList)
+  nuxtApp.vueApp.component('Link', Link)
+  nuxtApp.vueApp.component('ListOrdered', ListOrdered)
+  nuxtApp.vueApp.component('Menu', Menu)
+  nuxtApp.vueApp.component('Printer', Printer)
+  nuxtApp.vueApp.component('SquareCode', SquareCode)
+  nuxtApp.vueApp.component('StickyNote', StickyNote)
+  nuxtApp.vueApp.component('Strikethrough', Strikethrough)
+  nuxtApp.vueApp.component('TextQuote', TextQuote)
+  nuxtApp.vueApp.component('TriangleAlert', TriangleAlert)
+  nuxtApp.vueApp.component('Underline', Underline)
+  nuxtApp.vueApp.component('View', View)
+  nuxtApp.vueApp.component('Save', Save)
+  nuxtApp.vueApp.component('Paintbrush', Paintbrush)
 })
