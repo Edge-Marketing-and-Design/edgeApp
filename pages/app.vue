@@ -38,6 +38,44 @@ const menuBuilder = () => {
       devOnly: true,
     },
     {
+      title: 'Sites',
+      to: '/app/dashboard/sites',
+      icon: 'LayoutPanelTop',
+      devOnly: true,
+      submenu: [
+        {
+          title: 'Sites',
+          to: '/app/dashboard/sites',
+          icon: 'LayoutPanelTop',
+          devOnly: true,
+        },
+        {
+          title: 'Media',
+          to: '/app/dashboard/media',
+          icon: 'Image',
+          devOnly: true,
+        },
+        {
+          title: 'Blocks',
+          to: '/app/dashboard/blocks',
+          icon: 'Blocks',
+          devOnly: true,
+        },
+        {
+          title: 'Templates',
+          to: '/app/dashboard/templates',
+          icon: 'LayoutList',
+          devOnly: true,
+        },
+        {
+          title: 'Themes',
+          to: '/app/dashboard/themes',
+          icon: 'Paintbrush',
+          devOnly: true,
+        },
+      ],
+    },
+    {
       title: 'Settings',
       to: '/app/account/my-profile',
       icon: 'Settings',
