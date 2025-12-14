@@ -25,7 +25,10 @@
     "rewrites": [
       {
         "source": "/api/stripe",
-        "function": "stripe-webhook"
+        "function": {
+          "functionId": "stripe-webhook",
+          "region": "us-west1"
+        }
       },
       {
         "source": "**",
