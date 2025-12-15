@@ -13,5 +13,6 @@ export default defineNuxtPlugin((nuxtApp) => {
     emulatorFirestore: import.meta.env.VITE_FIREBASE_EMULATOR_FIRESTORE,
     emulatorFunctions: import.meta.env.VITE_FIREBASE_EMULATOR_FUNCTIONS,
     emulatorStorage: import.meta.env.VITE_FIREBASE_EMULATOR_STORAGE,
+    functionsRegion: import.meta.env.VITE_FIREBASE_FUNCTIONS_REGION,
   }, true, true)
 })
