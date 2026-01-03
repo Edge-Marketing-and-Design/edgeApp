@@ -1,0 +1,7 @@
+{
+  "name": "@edgedev/module-test",
+  "version": "0.1.0",
+  "description": "Test module that prints a pep talk.",
+  "private": true,
+  "edgeModule": "./edge-module.json"
+}

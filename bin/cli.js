@@ -27,6 +27,11 @@ const modifyPackageJson = (repoName) => {
     delete packageJsonObj.bin
     packageJsonObj.name = repoName
     packageJsonObj.description = `A really cool Edge App for ${repoName}`
+    packageJsonObj.bin = {
+      edge: './bin/edge.js',
+    }
+    packageJsonObj.scripts = packageJsonObj.scripts || {}
+    packageJsonObj.scripts.edge = 'node ./bin/edge.js'
 
     // Write the file back
     fs.writeFileSync(packageJsonPath, JSON.stringify(packageJsonObj, null, 2))
@@ -61,7 +66,32 @@ const cleanGitignore = (repoName) => {
   return true
 }
 
-const repoName = process.argv[2]
+const rawArgs = process.argv.slice(2)
+const repoName = rawArgs[0]
+const moduleIds = []
+
+if (!repoName) {
+  console.error('Missing project name. Usage: create-edge-app <project-name> [--modules foo,bar]')
+  process.exit(1)
+}
+
+for (let i = 1; i < rawArgs.length; i += 1) {
+  const arg = rawArgs[i]
+  if (arg === '--modules' || arg === '--module') {
+    const value = rawArgs[i + 1]
+    if (value) {
+      moduleIds.push(...value.split(',').map(item => item.trim()).filter(Boolean))
+      i += 1
+    }
+    continue
+  }
+  if (arg.startsWith('--modules=') || arg.startsWith('--module=')) {
+    const value = arg.split('=')[1]
+    if (value) {
+      moduleIds.push(...value.split(',').map(item => item.trim()).filter(Boolean))
+    }
+  }
+}
 
 const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
 const removeGitDirCommand = `rm -rf ${repoName}/.git`
@@ -109,6 +139,17 @@ console.log(`Cloning Firebase Framework inside ${repoName}...`)
 const clonedFirebaseFramework = runCommand(cloneFirebaseFrameworkCommand)
 if (!clonedFirebaseFramework) {
   process.exit(1)
+}
+
+if (moduleIds.length) {
+  console.log(`Installing modules: ${moduleIds.join(', ')}...`)
+  for (const moduleId of moduleIds) {
+    const installModuleCommand = `cd ${repoName} && node ./bin/edge.js module add ${moduleId}`
+    const installedModule = runCommand(installModuleCommand)
+    if (!installedModule) {
+      process.exit(1)
+    }
+  }
 }
 
 console.log(`Successfully created ${repoName}!`)

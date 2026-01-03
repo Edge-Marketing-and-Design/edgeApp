@@ -1,0 +1,27 @@
+{
+  "id": "test-module",
+  "version": "0.1.0",
+  "description": "Test module that prints a pep talk.",
+  "runtime": {
+    "entry": "templates/edge-module.ts",
+    "target": "edge-modules/test-module.ts",
+    "export": "edgeModule"
+  },
+  "templates": [
+    {
+      "from": "templates/edge-module.ts",
+      "to": "edge-modules/test-module.ts",
+      "overwrite": false
+    },
+    {
+      "from": "templates/pep-talk.ts",
+      "to": "edge-modules/pep-talk.ts",
+      "overwrite": false
+    },
+    {
+      "from": "templates/test-module.client.ts",
+      "to": "plugins/test-module.client.ts",
+      "overwrite": false
+    }
+  ]
+}
