@@ -5,12 +5,12 @@ export const formBuilderRegistryEntry = {
   manifest: formBuilderManifest,
   navigation: {
     label: 'Form Builder',
-    route: '/admin/forms',
+    route: '/app/dashboard/forms',
     icon: 'clipboard-list',
   },
   adminRoutes: [
     {
-      path: '/admin/forms',
+      path: '/app/dashboard/forms',
       name: 'form-builder-admin',
       component: 'FormBuilderAdmin',
     },

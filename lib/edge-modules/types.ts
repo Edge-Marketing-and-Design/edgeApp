@@ -64,6 +64,7 @@ export interface EdgeModuleManifest {
 }
 
 export interface EdgeModuleInstallRecord {
+  docId?: string
   moduleId: string
   installedVersion: string
   enabled: boolean
@@ -80,6 +81,7 @@ export interface EdgeModuleInstallRecord {
 }
 
 export interface EdgeModuleSiteRecord {
+  docId?: string
   moduleId: string
   enabled: boolean
   updatedAt: string

@@ -1,0 +1,7 @@
+{
+  "name": "@edgedev/module-form-builder",
+  "version": "0.2.0",
+  "description": "Form builder module.",
+  "private": true,
+  "edgeModule": "./edge-module.json"
+}

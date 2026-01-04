@@ -143,6 +143,125 @@ if (!access.allowed) {
 Server-side gatekeeping is available in `functions/modules-gatekeeper.js` so
 Cloud Functions can enforce the same rules.
 
+## Extension workflow (how to add a module)
+
+This is the end-to-end process for adding an extension and making it available
+to projects created with this starter.
+
+### 1) Create the module package
+
+Create a folder under `packages/` (or `modules/`) and add a module manifest:
+
+```
+packages/module-<name>/
+  edge-module.json
+  package.json
+  runtime/edge-module.ts
+  ui/
+  schema/
+  data/
+```
+
+`package.json` must include an `edgeModule` pointer:
+
+```json
+{
+  "name": "@edgedev/module-<name>",
+  "version": "0.1.0",
+  "private": true,
+  "edgeModule": "./edge-module.json"
+}
+```
+
+### 2) Define the runtime manifest
+
+`runtime/edge-module.ts` exports `edgeModule` and is copied into the target
+project. This is the contract the app uses at runtime:
+
+```ts
+export const edgeModule = {
+  id: 'form-builder',
+  version: '1.2.0',
+  scope: ['tenant', 'site'],
+  compatibility: { platform: '>=1.0.0 <2.0.0' },
+  permissions: ['forms:read', 'forms:write'],
+  ui: { adminNav: [{ label: 'Forms', to: '/app/dashboard/forms' }] },
+  data: { collections: ['forms', 'formSubmissions'] },
+  lifecycle: {
+    install: async (ctx) => {},
+    upgrade: async (ctx, fromVersion, toVersion) => {},
+    uninstall: async (ctx) => {},
+  },
+} as const
+```
+
+### 3) Describe install behavior in `edge-module.json`
+
+Use the manifest to copy templates, inject patches, and register the runtime
+manifest:
+
+```json
+{
+  "id": "form-builder",
+  "version": "0.1.0",
+  "runtime": {
+    "entry": "runtime/edge-module.ts",
+    "target": "edge-modules/form-builder.ts",
+    "export": "edgeModule"
+  },
+  "templates": [
+    { "from": "ui/pages/Admin.vue", "to": "pages/app/dashboard/forms/index.vue" }
+  ],
+  "patches": [
+    {
+      "type": "marker-insert",
+      "target": "firestore.rules",
+      "marker": "MODULE RULES",
+      "source": "data/rules.ts",
+      "insertPosition": "before"
+    }
+  ]
+}
+```
+
+### 4) Install into a project
+
+Inside a project created from this starter:
+
+```bash
+pnpm edge module add form-builder
+```
+
+This copies templates, writes receipts, and updates:
+- `.edge/modules/registry.ts`
+- `.edge/modules/<moduleId>.json`
+- `edge-modules/registry.ts`
+
+### 5) Enable in Firestore (tenant + site)
+
+Installing code does not automatically enable it for tenants/sites. Use the
+helpers in `composables/edgeModules.ts`:
+
+```ts
+await installTenantModule(edgeFirebase, orgId, 'form-builder')
+await installSiteModule(edgeFirebase, orgId, siteId, 'form-builder')
+```
+
+### 6) Upgrade flow
+
+When you bump a module version:
+- update `runtime/edge-module.ts` version
+- add migrations to the module (if needed)
+- run `pnpm edge module upgrade <moduleId>`
+- call `upgradeTenantModule` per org to run data migrations and log history
+
+### 7) Verify
+
+Confirm the module is discoverable and enabled:
+- UI: `/app/dashboard/modules`
+- Firestore: `organizations/{orgId}/modules/{moduleId}`
+- Site override: `organizations/{orgId}/sites/{siteId}/modules/{moduleId}`
+
 ### Scaffold-time install
 
 You can install modules during project creation:

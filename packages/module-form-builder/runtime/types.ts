@@ -5,6 +5,10 @@ export type FormBuilderModuleConfig = {
   maxResponseCount: number
   notifyOnSubmission: boolean
   submissionWebhookUrl?: string
+  turnstileSecret?: string
+  requireTurnstileForPublic: boolean
+  rateLimitWindowSeconds: number
+  rateLimitMaxPerWindow: number
 }
 
 export type ModuleInstallContext = {
@@ -12,7 +16,7 @@ export type ModuleInstallContext = {
     doc: (path: string) => { set: (data: unknown, options?: { merge?: boolean }) => Promise<void> }
     collection: (path: string) => { doc: (id: string) => { set: (data: unknown, options?: { merge?: boolean }) => Promise<void> } }
   }
-  tenantId: string
+  orgId: string
   siteId: string
   now: Date
   logger?: { info: (message: string, meta?: Record<string, unknown>) => void }

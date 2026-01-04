@@ -1,0 +1,36 @@
+{
+  "id": "form-builder",
+  "version": "0.2.0",
+  "description": "Form builder module with site-level forms.",
+  "runtime": {
+    "entry": "runtime/edge-module.ts",
+    "target": "edge-modules/form-builder.ts",
+    "export": "edgeModule"
+  },
+  "templates": [
+    {
+      "from": "schema/config.ts",
+      "to": "edge-modules/form-builder.config.ts",
+      "overwrite": false
+    },
+    {
+      "from": "ui/pages/FormBuilderAdmin.vue",
+      "to": "pages/app/dashboard/forms/index.vue",
+      "overwrite": false
+    },
+    {
+      "from": "ui/components/FormBuilderEmptyState.vue",
+      "to": "components/form-builder/FormBuilderEmptyState.vue",
+      "overwrite": false
+    }
+  ],
+  "patches": [
+    {
+      "type": "marker-insert",
+      "target": "firestore.rules",
+      "marker": "MODULE RULES",
+      "source": "data/rules.ts",
+      "insertPosition": "before"
+    }
+  ]
+}

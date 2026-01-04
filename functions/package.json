@@ -29,8 +29,8 @@
     "formidable-serverless": "^1.1.1",
     "moment-timezone": "^0.5.48",
     "openai": "^4.104.0",
-    "stripe": "^13.11.0",
     "semver": "^7.6.3",
+    "stripe": "^13.11.0",
     "twilio": "^4.23.0"
   },
   "devDependencies": {

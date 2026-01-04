@@ -1,0 +1,16 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../edgeComponents"
+		}
+	],
+  "settings": {
+    "files.associations": {
+      "*.json": "json"
+    },
+    "vue3snippets.enable-compile-vue-file-on-did-save-code": false
+  }
+}

@@ -76,6 +76,7 @@ export const installTenantModule = async (
   await manifest.lifecycle?.install?.(ctx)
 
   const payload: EdgeModuleInstallRecord = {
+    docId: moduleId,
     moduleId,
     installedVersion: manifest.version,
     enabled: true,
@@ -150,8 +151,39 @@ export const setSiteModuleEnabled = async (
   configOverrides: Record<string, unknown> = {},
 ) => {
   const payload: EdgeModuleSiteRecord = {
+    docId: moduleId,
     moduleId,
     enabled,
+    updatedAt: nowIso(),
+    configOverrides,
+  }
+  await edgeFirebase.storeDoc(siteModulesPath(orgId, siteId), payload)
+}
+
+export const installSiteModule = async (
+  edgeFirebase: any,
+  orgId: string,
+  siteId: string,
+  moduleId: string,
+  configOverrides: Record<string, unknown> = {},
+) => {
+  const manifest = edgeModuleRegistry[moduleId]
+  if (!manifest) {
+    throw new Error(`Unknown module: ${moduleId}`)
+  }
+
+  const tenantRecord = getTenantModuleRecord(edgeFirebase, orgId, moduleId)
+  if (!tenantRecord) {
+    throw new Error(`Module not installed: ${moduleId}`)
+  }
+
+  const ctx = { edgeFirebase, orgId, siteId, moduleId, config: tenantRecord.config || {} }
+  await manifest.lifecycle?.install?.(ctx)
+
+  const payload: EdgeModuleSiteRecord = {
+    docId: moduleId,
+    moduleId,
+    enabled: true,
     updatedAt: nowIso(),
     configOverrides,
   }

@@ -107,6 +107,12 @@ const menuBuilder = () => {
           icon: 'Users',
           override: isOrgUserAdmin,
         },
+        {
+          title: 'Modules',
+          to: '/app/dashboard/modules',
+          icon: 'Package',
+          override: isOrgUserAdmin,
+        },
       ],
     },
   ]
