@@ -1,7 +1,16 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
-require('ts-node/register/transpile-only')
+require('ts-node').register({
+  transpileOnly: true,
+  skipProject: true,
+  compilerOptions: {
+    module: 'commonjs',
+    moduleResolution: 'node',
+    target: 'es2019',
+    esModuleInterop: true,
+  },
+})
 
 const { evaluateModuleAccess } = require('../../../lib/edge-modules/gatekeeper.ts')
 

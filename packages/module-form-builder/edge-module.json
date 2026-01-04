@@ -19,6 +19,11 @@
       "overwrite": false
     },
     {
+      "from": "ui/pages/schema-utils.ts",
+      "to": "pages/app/dashboard/forms/schema-utils.ts",
+      "overwrite": false
+    },
+    {
       "from": "ui/components/FormBuilderEmptyState.vue",
       "to": "components/form-builder/FormBuilderEmptyState.vue",
       "overwrite": false
