@@ -96,6 +96,11 @@ const DraggableStub = defineComponent({
   },
 })
 
+const selectSite = async (siteId = 'site-1') => {
+  await fireEvent.update(screen.getByRole('combobox'), siteId)
+  await flushPromises()
+}
+
 const createRenderOptions = (overrides?: { edgeFirebase?: any }) => {
   const orgId = 'org-1'
   const siteId = 'site-1'
@@ -172,6 +177,7 @@ describe('FormBuilderAdmin', () => {
     await flushPromises()
 
     expect(edgeFirebase.startSnapshot).toHaveBeenCalledWith(`organizations/${orgId}/sites`)
+    await selectSite(siteId)
     expect(edgeFirebase.startSnapshot).toHaveBeenCalledWith(formsPath)
     expect(edgeFirebase.startSnapshot).toHaveBeenCalledWith(versionsPath)
   })
@@ -209,6 +215,7 @@ describe('FormBuilderAdmin', () => {
     })
 
     await flushPromises()
+    await selectSite('site-1')
 
     await fireEvent.click(screen.getByRole('button', { name: 'New form' }))
     await fireEvent.update(screen.getByLabelText('Name'), 'Customer Intake')
@@ -259,6 +266,8 @@ describe('FormBuilderAdmin', () => {
     })
 
     await flushPromises()
+    await selectSite('site-1')
+    await fireEvent.click(screen.getByRole('button', { name: /Contact/ }))
 
     await fireEvent.click(screen.getByRole('button', { name: 'JSON' }))
     const schemaInput = screen.getByLabelText('Schema JSON') as HTMLTextAreaElement
@@ -351,6 +360,8 @@ describe('FormBuilderAdmin', () => {
     })
 
     await flushPromises()
+    await selectSite(siteId)
+    await fireEvent.click(screen.getByRole('button', { name: /Contact/ }))
 
     await fireEvent.click(screen.getByRole('button', { name: 'Save new version' }))
     await flushPromises()

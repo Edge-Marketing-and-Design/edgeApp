@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import draggable from 'vuedraggable'
+import { computed, inject, onMounted, reactive, watch } from 'vue'
 import FormBuilderEmptyState from '~/components/form-builder/FormBuilderEmptyState.vue'
 import { buildSchemaFromFields, schemaToFields } from './schema-utils'
 
@@ -16,6 +17,12 @@ type FormFieldDraft = {
   type: string
   required: boolean
   options?: string[]
+  helpText?: string
+  placeholder?: string
+  min?: number
+  max?: number
+  pattern?: string
+  ui?: Record<string, unknown>
   _key: string
 }
 
@@ -30,18 +37,30 @@ const fieldTypeLabels: Record<string, string> = {
   date: 'Date',
 }
 
+const snapshotPaths = {
+  sites: '',
+  forms: '',
+  versions: '',
+}
+
+let schemaSyncTimer: ReturnType<typeof setTimeout> | null = null
+const schemaSyncDelayMs = 200
+
 const state = reactive({
   filter: '',
   mounted: false,
   selectedSiteId: '',
   selectedFormId: '',
   showCreate: false,
+  compareVersionId: '',
+  activatingVersionId: '',
   createError: '',
   creating: false,
   editor: {
     mode: 'fields' as 'fields' | 'json',
     error: '',
     saving: false,
+    showAdvanced: false,
     fields: [] as FormFieldDraft[],
     schemaJson: '',
     uiSchemaJson: '{}',
@@ -127,12 +146,37 @@ const formVersions = computed(() => {
   return versions.value.filter(version => version.formId === selectedFormId.value)
 })
 
+const sortedFormVersions = computed(() => {
+  return [...formVersions.value].sort((a, b) => {
+    const versionA = Number.isFinite(a.version) ? Number(a.version) : 0
+    const versionB = Number.isFinite(b.version) ? Number(b.version) : 0
+    if (versionA !== versionB) {
+      return versionB - versionA
+    }
+    return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''))
+  })
+})
+
 const activeVersion = computed(() => {
   const activeId = selectedForm.value?.activeVersionId
   if (!activeId) {
     return null
   }
   return formVersions.value.find(version => version.id === activeId || version.docId === activeId) || null
+})
+
+const activeVersionId = computed(() => {
+  if (!activeVersion.value) {
+    return ''
+  }
+  return activeVersion.value.id || activeVersion.value.docId || ''
+})
+
+const compareVersion = computed(() => {
+  if (!state.compareVersionId) {
+    return null
+  }
+  return formVersions.value.find(version => (version.id || version.docId) === state.compareVersionId) || null
 })
 
 const activeVersionLabel = computed(() => {
@@ -145,6 +189,34 @@ const activeVersionLabel = computed(() => {
 })
 
 const formatFieldType = (value: string) => fieldTypeLabels[value] || value
+const isNumberField = (value: string) => value === 'number'
+const isTextField = (value: string) => ['shortText', 'longText', 'email'].includes(value)
+
+const syncSchemaFromFields = (immediate = false) => {
+  if (schemaSyncTimer) {
+    clearTimeout(schemaSyncTimer)
+    schemaSyncTimer = null
+  }
+  const run = () => {
+    state.editor.schemaJson = JSON.stringify(buildSchemaFromFields(state.editor.fields), null, 2)
+  }
+  if (immediate) {
+    run()
+    return
+  }
+  schemaSyncTimer = setTimeout(run, schemaSyncDelayMs)
+}
+
+const getVersionSchema = (version: any) => {
+  if (!version) {
+    return {}
+  }
+  return version.schema || buildSchemaFromFields(version.fields || [])
+}
+
+const getVersionSchemaJson = (version: any) => {
+  return JSON.stringify(getVersionSchema(version) || {}, null, 2)
+}
 
 
 const createField = (overrides: Partial<FormFieldDraft> = {}): FormFieldDraft => {
@@ -154,6 +226,12 @@ const createField = (overrides: Partial<FormFieldDraft> = {}): FormFieldDraft =>
     type: 'shortText',
     required: false,
     options: [],
+    helpText: '',
+    placeholder: '',
+    min: undefined,
+    max: undefined,
+    pattern: '',
+    ui: {},
     _key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     ...overrides,
   }
@@ -166,6 +244,12 @@ const hydrateFields = (fields: any[] = []) => {
     type: field?.type || 'shortText',
     required: Boolean(field?.required),
     options: Array.isArray(field?.options) ? [...field.options] : [],
+    helpText: field?.helpText || '',
+    placeholder: field?.placeholder || '',
+    min: typeof field?.min === 'number' ? field.min : undefined,
+    max: typeof field?.max === 'number' ? field.max : undefined,
+    pattern: field?.pattern || '',
+    ui: field?.ui || {},
     _key: field?._key || `${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
   }))
 }
@@ -175,7 +259,9 @@ const parseJsonValue = (value: string, label: string) => {
     return {}
   }
   try {
-    return JSON.parse(value)
+    const parsed = JSON.parse(value)
+    state.editor.error = ''
+    return parsed
   }
   catch (err) {
     state.editor.error = `${label} must be valid JSON.`
@@ -190,6 +276,7 @@ const syncEditor = () => {
     state.editor.schemaJson = ''
     state.editor.uiSchemaJson = '{}'
     state.editor.error = ''
+    state.compareVersionId = ''
     return
   }
 
@@ -203,17 +290,30 @@ const syncEditor = () => {
   state.editor.schemaJson = JSON.stringify(schema || {}, null, 2)
   state.editor.uiSchemaJson = JSON.stringify(version?.uiSchema || {}, null, 2)
   state.editor.error = ''
+  state.compareVersionId = ''
 }
 
 const loadSnapshots = async () => {
   if (!orgId.value) {
     return
   }
-  await edgeFirebase.startSnapshot(`organizations/${orgId.value}/sites`)
-  if (formsCollectionPath.value) {
+  const sitesPath = `organizations/${orgId.value}/sites`
+  if (snapshotPaths.sites !== sitesPath) {
+    snapshotPaths.sites = sitesPath
+    await edgeFirebase.startSnapshot(sitesPath)
+  }
+}
+
+const loadSiteSnapshots = async () => {
+  if (!formsCollectionPath.value || !versionsCollectionPath.value) {
+    return
+  }
+  if (snapshotPaths.forms !== formsCollectionPath.value) {
+    snapshotPaths.forms = formsCollectionPath.value
     await edgeFirebase.startSnapshot(formsCollectionPath.value)
   }
-  if (versionsCollectionPath.value) {
+  if (snapshotPaths.versions !== versionsCollectionPath.value) {
+    snapshotPaths.versions = versionsCollectionPath.value
     await edgeFirebase.startSnapshot(versionsCollectionPath.value)
   }
 }
@@ -224,6 +324,26 @@ const slugify = (value: string) => {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '')
+}
+
+const resolveUniqueFormId = (baseId: string) => {
+  if (!formsCollectionPath.value) {
+    return baseId
+  }
+  const existing = edgeFirebase?.data?.[formsCollectionPath.value] || {}
+  if (!existing[baseId]) {
+    return baseId
+  }
+  let suffix = 2
+  let candidate = `${baseId}-${suffix}`
+  while (existing[candidate]) {
+    suffix += 1
+    if (suffix > 50) {
+      return `${baseId}-${Date.now()}`
+    }
+    candidate = `${baseId}-${suffix}`
+  }
+  return candidate
 }
 
 const resetCreateForm = () => {
@@ -245,8 +365,9 @@ const createForm = async () => {
     state.createError = 'Form name is required.'
     return
   }
+  const uniqueFormId = resolveUniqueFormId(formId)
   const timestamp = new Date().toISOString()
-  const versionId = `${formId}-v1`
+  const versionId = `${uniqueFormId}-v1`
   const schema = {
     type: 'object',
     properties: {},
@@ -256,7 +377,7 @@ const createForm = async () => {
   try {
     await edgeFirebase.storeDoc(versionsCollectionPath.value, {
       docId: versionId,
-      formId,
+      formId: uniqueFormId,
       version: 1,
       schema,
       uiSchema: {},
@@ -265,7 +386,7 @@ const createForm = async () => {
       updatedAt: timestamp,
     })
     await edgeFirebase.storeDoc(formsCollectionPath.value, {
-      docId: formId,
+      docId: uniqueFormId,
       name: state.newForm.name,
       description: state.newForm.description,
       status: state.newForm.status,
@@ -303,7 +424,7 @@ const setEditorMode = (mode: 'fields' | 'json') => {
   }
   state.editor.error = ''
   if (mode === 'json') {
-    state.editor.schemaJson = JSON.stringify(buildSchemaFromFields(state.editor.fields), null, 2)
+    syncSchemaFromFields(true)
     state.editor.mode = 'json'
     return
   }
@@ -315,6 +436,7 @@ const setEditorMode = (mode: 'fields' | 'json') => {
   state.editor.fields = hydrateFields(schemaToFields(parsedSchema))
   state.editor.schemaJson = JSON.stringify(parsedSchema, null, 2)
   state.editor.mode = 'fields'
+  state.editor.error = ''
 }
 
 const getNextVersionNumber = () => {
@@ -355,10 +477,11 @@ const saveVersion = async () => {
     schema = buildSchemaFromFields(state.editor.fields)
   }
 
-  const fields = state.editor.fields.length
-    ? state.editor.fields.map((field, index) => {
+  const fields = state.editor.mode === 'json'
+    ? schemaToFields(schema)
+    : state.editor.fields.map((field, index) => {
       const id = field.id || slugify(field.label) || `field-${index + 1}`
-      return {
+      const payload: Record<string, any> = {
         id,
         label: field.label || id,
         type: field.type || 'shortText',
@@ -367,8 +490,26 @@ const saveVersion = async () => {
           ? field.options.filter(option => option)
           : undefined,
       }
+      if (field.helpText) {
+        payload.helpText = field.helpText
+      }
+      if (field.placeholder) {
+        payload.placeholder = field.placeholder
+      }
+      if (typeof field.min === 'number') {
+        payload.min = field.min
+      }
+      if (typeof field.max === 'number') {
+        payload.max = field.max
+      }
+      if (field.pattern) {
+        payload.pattern = field.pattern
+      }
+      if (field.ui && Object.keys(field.ui).length) {
+        payload.ui = field.ui
+      }
+      return payload
     })
-    : schemaToFields(schema)
 
   const nextVersion = getNextVersionNumber()
   const versionId = `${formId}-v${nextVersion}`
@@ -401,6 +542,34 @@ const saveVersion = async () => {
   }
 }
 
+const activateVersion = async (version: any) => {
+  state.editor.error = ''
+  if (!formsCollectionPath.value || !selectedForm.value) {
+    return
+  }
+  const versionId = version?.id || version?.docId
+  if (!versionId) {
+    return
+  }
+  const timestamp = new Date().toISOString()
+  const formId = selectedFormId.value
+
+  state.activatingVersionId = versionId
+  try {
+    await edgeFirebase.storeDoc(formsCollectionPath.value, {
+      docId: formId,
+      activeVersionId: versionId,
+      updatedAt: timestamp,
+    })
+  }
+  catch (err: any) {
+    state.editor.error = err?.message || String(err)
+  }
+  finally {
+    state.activatingVersionId = ''
+  }
+}
+
 watch(orgId, async (value) => {
   if (!value) {
     return
@@ -424,8 +593,7 @@ watch(
       return
     }
     state.selectedFormId = ''
-    await edgeFirebase.startSnapshot(formsCollectionPath.value)
-    await edgeFirebase.startSnapshot(versionsCollectionPath.value)
+    await loadSiteSnapshots()
   },
 )
 
@@ -454,7 +622,7 @@ watch(
   () => state.editor.fields,
   () => {
     if (state.editor.mode === 'fields') {
-      state.editor.schemaJson = JSON.stringify(buildSchemaFromFields(state.editor.fields), null, 2)
+      syncSchemaFromFields()
     }
   },
   { deep: true },
@@ -654,9 +822,18 @@ onMounted(async () => {
         <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div class="flex items-center justify-between">
             <p class="text-sm font-semibold text-slate-800">Fields</p>
-            <edge-shad-button variant="outline" size="sm" @click="addField">
-              Add field
-            </edge-shad-button>
+            <div class="flex flex-wrap gap-2">
+              <edge-shad-button
+                variant="outline"
+                size="sm"
+                @click="state.editor.showAdvanced = !state.editor.showAdvanced"
+              >
+                {{ state.editor.showAdvanced ? 'Hide advanced' : 'Advanced fields' }}
+              </edge-shad-button>
+              <edge-shad-button variant="outline" size="sm" @click="addField">
+                Add field
+              </edge-shad-button>
+            </div>
           </div>
 
           <edge-form class="mt-4">
@@ -720,38 +897,144 @@ onMounted(async () => {
                       helper="Enter options as a list"
                     />
                   </div>
+                  <div v-if="state.editor.showAdvanced" class="mt-3 grid gap-3 md:grid-cols-2">
+                    <edge-g-input
+                      v-model="element.helpText"
+                      :name="`field-help-${element._key}`"
+                      field-type="text"
+                      label="Help text"
+                      placeholder="Add guidance for this field"
+                    />
+                    <edge-g-input
+                      v-model="element.placeholder"
+                      :name="`field-placeholder-${element._key}`"
+                      field-type="text"
+                      label="Placeholder"
+                      placeholder="Example input"
+                    />
+                    <edge-g-input
+                      v-if="isNumberField(element.type) || isTextField(element.type)"
+                      v-model="element.min"
+                      :name="`field-min-${element._key}`"
+                      field-type="number"
+                      :label="isNumberField(element.type) ? 'Minimum' : 'Min length'"
+                    />
+                    <edge-g-input
+                      v-if="isNumberField(element.type) || isTextField(element.type)"
+                      v-model="element.max"
+                      :name="`field-max-${element._key}`"
+                      field-type="number"
+                      :label="isNumberField(element.type) ? 'Maximum' : 'Max length'"
+                    />
+                    <edge-g-input
+                      v-if="isTextField(element.type)"
+                      v-model="element.pattern"
+                      :name="`field-pattern-${element._key}`"
+                      field-type="text"
+                      label="Pattern"
+                      helper="Regex for validation"
+                    />
+                  </div>
                 </div>
               </template>
             </draggable>
           </edge-form>
         </div>
 
-        <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <div class="flex items-center justify-between">
-            <p class="text-sm font-semibold text-slate-800">Schema</p>
-            <span class="text-xs text-slate-500">Active: {{ activeVersionLabel }}</span>
+        <div class="space-y-4">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-slate-800">Schema</p>
+              <span class="text-xs text-slate-500">Active: {{ activeVersionLabel }}</span>
+            </div>
+            <div class="mt-3 space-y-3">
+              <edge-g-input
+                v-if="state.editor.mode === 'json'"
+                v-model="state.editor.schemaJson"
+                name="schema-json"
+                field-type="textarea"
+                label="Schema JSON"
+                helper="Edit the JSON schema directly."
+              />
+              <edge-g-input
+                v-if="state.editor.mode === 'json'"
+                v-model="state.editor.uiSchemaJson"
+                name="ui-schema-json"
+                field-type="textarea"
+                label="UI Schema JSON"
+                helper="Optional UI hints for your renderer."
+              />
+              <pre v-else class="max-h-[360px] overflow-auto rounded-md bg-white p-3 text-xs text-slate-600 shadow-sm">{{ state.editor.schemaJson }}</pre>
+            </div>
+            <div class="mt-3 text-xs text-slate-500">
+              Saving creates a new version and updates the active version for this form.
+            </div>
           </div>
-          <div class="mt-3 space-y-3">
-            <edge-g-input
-              v-if="state.editor.mode === 'json'"
-              v-model="state.editor.schemaJson"
-              name="schema-json"
-              field-type="textarea"
-              label="Schema JSON"
-              helper="Edit the JSON schema directly."
-            />
-            <edge-g-input
-              v-if="state.editor.mode === 'json'"
-              v-model="state.editor.uiSchemaJson"
-              name="ui-schema-json"
-              field-type="textarea"
-              label="UI Schema JSON"
-              helper="Optional UI hints for your renderer."
-            />
-            <pre v-else class="max-h-[360px] overflow-auto rounded-md bg-white p-3 text-xs text-slate-600 shadow-sm">{{ state.editor.schemaJson }}</pre>
+
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-slate-800">Version history</p>
+              <span class="text-xs text-slate-500">{{ sortedFormVersions.length }} versions</span>
+            </div>
+            <div v-if="sortedFormVersions.length === 0" class="mt-3 text-xs text-slate-500">
+              No versions yet. Save a schema to create the first version.
+            </div>
+            <div v-else class="mt-3 space-y-2">
+              <div
+                v-for="version in sortedFormVersions"
+                :key="version.id || version.docId"
+                class="rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-600"
+              >
+                <div class="flex items-center justify-between gap-2">
+                  <div>
+                    <p class="text-sm font-semibold text-slate-800">v{{ version.version || 1 }}</p>
+                    <p class="text-xs text-slate-500">{{ version.id || version.docId }}</p>
+                  </div>
+                  <span
+                    v-if="(version.id || version.docId) === activeVersionId"
+                    class="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase text-emerald-700"
+                  >
+                    Active
+                  </span>
+                </div>
+                <div class="mt-2 flex flex-wrap gap-2">
+                  <edge-shad-button
+                    size="sm"
+                    variant="outline"
+                    :disabled="state.activatingVersionId === (version.id || version.docId)"
+                    @click="activateVersion(version)"
+                  >
+                    {{ state.activatingVersionId === (version.id || version.docId) ? 'Activating…' : 'Activate' }}
+                  </edge-shad-button>
+                  <edge-shad-button
+                    size="sm"
+                    variant="ghost"
+                    @click="state.compareVersionId = version.id || version.docId"
+                  >
+                    Compare
+                  </edge-shad-button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="mt-3 text-xs text-slate-500">
-            Saving creates a new version and updates the active version for this form.
+
+          <div v-if="compareVersion" class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-slate-800">Compare versions</p>
+              <edge-shad-button size="sm" variant="ghost" @click="state.compareVersionId = ''">
+                Clear
+              </edge-shad-button>
+            </div>
+            <div class="mt-3 grid gap-3 md:grid-cols-2">
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500">Active</p>
+                <pre class="mt-2 max-h-64 overflow-auto rounded-md bg-white p-3 text-[11px] text-slate-600 shadow-sm">{{ getVersionSchemaJson(activeVersion) }}</pre>
+              </div>
+              <div>
+                <p class="text-xs font-semibold uppercase text-slate-500">Selected</p>
+                <pre class="mt-2 max-h-64 overflow-auto rounded-md bg-white p-3 text-[11px] text-slate-600 shadow-sm">{{ getVersionSchemaJson(compareVersion) }}</pre>
+              </div>
+            </div>
           </div>
         </div>
       </div>

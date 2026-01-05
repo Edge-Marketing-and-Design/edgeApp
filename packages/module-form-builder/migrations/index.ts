@@ -1,8 +1,9 @@
-import { migrationId as initId, runMigration as runInitMigration } from './0001-init'
+import * as initMigration from './0001-init'
 
 export const formBuilderMigrations = [
   {
-    id: initId,
-    run: runInitMigration,
+    id: initMigration.migrationId,
+    run: (...args: Parameters<typeof initMigration.runMigration>) =>
+      initMigration.runMigration(...args),
   },
 ]

@@ -6,6 +6,12 @@ export const formFieldSchema = z.object({
   type: z.enum(['shortText', 'longText', 'email', 'number', 'select', 'checkbox', 'date']),
   required: z.boolean().default(false),
   options: z.array(z.string().min(1)).optional(),
+  helpText: z.string().optional(),
+  placeholder: z.string().optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  pattern: z.string().optional(),
+  ui: z.record(z.unknown()).optional(),
 })
 
 export const formAudienceSchema = z.object({
