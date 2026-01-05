@@ -41,6 +41,7 @@ function printHelp() {
   console.log("Commands:");
   console.log("  list                 List available and installed modules");
   console.log("  add <moduleId>        Install a module into the current project");
+  console.log("  create <moduleId>     Scaffold a new module package");
   console.log("  upgrade <moduleId>    Re-install a module to apply updates");
   console.log("  info <moduleId>       Show module manifest details");
   console.log("  validate              Validate module registry and receipts");
@@ -49,6 +50,12 @@ function printHelp() {
   console.log("Options:");
   console.log("  --project-root <dir>  Target project root (defaults to CWD)");
   console.log("  --workspace-root <dir>  Override module workspace root");
+  console.log("  --dir <path>          Output directory for module creation");
+  console.log("  --label <label>       Display name for the module");
+  console.log("  --description <text>  Description for the module");
+  console.log("  --version <semver>    Initial module version (default 0.1.0)");
+  console.log("  --package-name <name> Package name (default @edgedev/module-<id>)");
+  console.log("  --route <path>        Admin route path (default /app/dashboard/<id>)");
 }
 
 function formatDependencySummary(manifest) {
@@ -139,6 +146,68 @@ function printIssues(result) {
   }
 }
 
+function parseCreateOptions(rawArgs) {
+  const options = {};
+  for (let i = 0; i < rawArgs.length; i += 1) {
+    const arg = rawArgs[i];
+    if (arg === "--dir") {
+      options.outputDir = rawArgs[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--dir=")) {
+      options.outputDir = arg.split("=")[1];
+      continue;
+    }
+    if (arg === "--label") {
+      options.label = rawArgs[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--label=")) {
+      options.label = arg.split("=")[1];
+      continue;
+    }
+    if (arg === "--description") {
+      options.description = rawArgs[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--description=")) {
+      options.description = arg.split("=")[1];
+      continue;
+    }
+    if (arg === "--version") {
+      options.version = rawArgs[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--version=")) {
+      options.version = arg.split("=")[1];
+      continue;
+    }
+    if (arg === "--package-name") {
+      options.packageName = rawArgs[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--package-name=")) {
+      options.packageName = arg.split("=")[1];
+      continue;
+    }
+    if (arg === "--route") {
+      options.route = rawArgs[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("--route=")) {
+      options.route = arg.split("=")[1];
+      continue;
+    }
+  }
+  return options;
+}
+
 async function main() {
   const rawArgs = process.argv.slice(2);
   const { args, projectRoot: rawProjectRoot, workspaceRoot: rawWorkspaceRoot } =
@@ -197,6 +266,23 @@ async function main() {
     );
     console.log(`Receipt: ${result.receipt}`);
     console.log(`Registry: ${result.registry}`);
+    return;
+  }
+
+  if (command === "create") {
+    const moduleId = args[2];
+    if (!moduleId) {
+      throw new Error("Missing moduleId. Usage: edge module create <moduleId>");
+    }
+    const options = parseCreateOptions(args.slice(3));
+    const result = await moduleSystem.createModulePackage({
+      moduleId,
+      workspaceRoot,
+      ...options,
+    });
+    console.log(`Created module package at ${result.moduleRoot}`);
+    console.log(`Package name: ${result.packageName}`);
+    console.log(`Next: edge module add ${moduleId}`);
     return;
   }
 

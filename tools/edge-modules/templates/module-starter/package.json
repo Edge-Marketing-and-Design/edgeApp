@@ -1,0 +1,7 @@
+{
+  "name": "__MODULE_PACKAGE_NAME__",
+  "version": "__MODULE_VERSION__",
+  "description": "__MODULE_DESCRIPTION__",
+  "private": true,
+  "edgeModule": "./edge-module.json"
+}

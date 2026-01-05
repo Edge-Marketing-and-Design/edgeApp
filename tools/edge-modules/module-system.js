@@ -15,6 +15,11 @@ const EDGE_RUNTIME_REGISTRY_FILE = path.join(EDGE_RUNTIME_DIR, "registry.ts");
 const EDGE_RUNTIME_IMPORT_MARKER = "EDGE MODULE IMPORTS";
 const EDGE_RUNTIME_REGISTRY_MARKER = "EDGE MODULE REGISTRY";
 const EDGE_MODULE_MANIFEST = "edge-module.json";
+const EDGE_MODULE_TEMPLATE_DIR = path.join(
+  __dirname,
+  "templates",
+  "module-starter"
+);
 
 function resolveAbsolutePath(root, filePath) {
   return path.isAbsolute(filePath) ? filePath : path.join(root, filePath);
@@ -142,8 +147,110 @@ function toModuleIdentifier(moduleId) {
   return base.toLowerCase().endsWith("module") ? base : `${base}Module`;
 }
 
+function toModuleLabel(moduleId) {
+  const parts = moduleId.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (!parts.length) {
+    return "Module";
+  }
+  return parts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function toPascalCase(moduleId) {
+  const parts = moduleId.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (!parts.length) {
+    return "Module";
+  }
+  return parts
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+}
+
+function toCamelCase(moduleId) {
+  const pascal = toPascalCase(moduleId);
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
+}
+
 function toPosix(filePath) {
   return filePath.replace(/\\/g, "/");
+}
+
+function replaceTokens(content, replacements) {
+  let output = content;
+  for (const [token, value] of Object.entries(replacements)) {
+    output = output.split(token).join(value);
+  }
+  return output;
+}
+
+async function copyTemplateDir(sourceDir, targetDir, replacements) {
+  await ensureDir(targetDir);
+  const entries = await fsp.readdir(sourceDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+    if (entry.isDirectory()) {
+      await copyTemplateDir(sourcePath, targetPath, replacements);
+      continue;
+    }
+    const content = await fsp.readFile(sourcePath, "utf8");
+    const rendered = replaceTokens(content, replacements);
+    await ensureDir(path.dirname(targetPath));
+    await fsp.writeFile(targetPath, rendered, "utf8");
+  }
+}
+
+async function createModulePackage({
+  moduleId,
+  workspaceRoot,
+  outputDir,
+  label,
+  description,
+  version,
+  packageName,
+  route,
+}) {
+  if (!moduleId) {
+    throw new Error("Missing moduleId.");
+  }
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(moduleId)) {
+    throw new Error(
+      "Module id must be lowercase alphanumeric with dashes only."
+    );
+  }
+  if (!fs.existsSync(EDGE_MODULE_TEMPLATE_DIR)) {
+    throw new Error(`Template directory missing: ${EDGE_MODULE_TEMPLATE_DIR}`);
+  }
+
+  const moduleLabel = label || toModuleLabel(moduleId);
+  const moduleVersion = version || "0.1.0";
+  const moduleDescription = description || `${moduleLabel} module.`;
+  const moduleDirName = moduleId.startsWith("module-")
+    ? moduleId
+    : `module-${moduleId}`;
+  const moduleRoot = outputDir
+    ? resolveAbsolutePath(workspaceRoot, outputDir)
+    : path.join(workspaceRoot, "packages", moduleDirName);
+
+  if (fs.existsSync(moduleRoot)) {
+    throw new Error(`Target directory already exists: ${moduleRoot}`);
+  }
+
+  const replacements = {
+    __MODULE_ID__: moduleId,
+    __MODULE_VERSION__: moduleVersion,
+    __MODULE_LABEL__: moduleLabel,
+    __MODULE_DESCRIPTION__: moduleDescription,
+    __MODULE_PACKAGE_NAME__:
+      packageName || `@edgedev/${moduleDirName}`,
+    __MODULE_ROUTE__: route || `/app/dashboard/${moduleId}`,
+    __MODULE_CAMEL__: toCamelCase(moduleId),
+    __MODULE_PASCAL__: toPascalCase(moduleId),
+  };
+
+  await copyTemplateDir(EDGE_MODULE_TEMPLATE_DIR, moduleRoot, replacements);
+  return { moduleRoot, moduleId, packageName: replacements.__MODULE_PACKAGE_NAME__ };
 }
 
 async function upsertRuntimeRegistryEntry(projectRoot, manifest) {
@@ -887,6 +994,7 @@ module.exports = {
   discoverModulePackages,
   resolveModuleById,
   installModule,
+  createModulePackage,
   loadReceipts,
   isEdgeProject,
   validateProject,

@@ -1,0 +1,36 @@
+{
+  "id": "__MODULE_ID__",
+  "version": "__MODULE_VERSION__",
+  "description": "__MODULE_DESCRIPTION__",
+  "runtime": {
+    "entry": "runtime/edge-module.ts",
+    "target": "edge-modules/__MODULE_ID__.ts",
+    "export": "edgeModule"
+  },
+  "templates": [
+    {
+      "from": "schema/config.ts",
+      "to": "edge-modules/__MODULE_ID__.config.ts",
+      "overwrite": false
+    },
+    {
+      "from": "ui/pages/ModuleAdmin.vue",
+      "to": "pages/app/dashboard/__MODULE_ID__/index.vue",
+      "overwrite": false
+    },
+    {
+      "from": "ui/components/ModuleEmptyState.vue",
+      "to": "components/__MODULE_ID__/ModuleEmptyState.vue",
+      "overwrite": false
+    }
+  ],
+  "patches": [
+    {
+      "type": "marker-insert",
+      "target": "firestore.rules",
+      "marker": "MODULE RULES",
+      "source": "data/rules.ts",
+      "insertPosition": "before"
+    }
+  ]
+}

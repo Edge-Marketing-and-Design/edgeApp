@@ -12,6 +12,7 @@
     "build-emulator": "nuxt generate --dotenv .env.dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "edge": "node ./bin/edge.js",
     "test": "node --test tools/edge-modules/__tests__/*.test.js",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
