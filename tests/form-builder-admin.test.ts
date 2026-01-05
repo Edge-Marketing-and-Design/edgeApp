@@ -5,6 +5,13 @@ import { describe, expect, it, vi } from 'vitest'
 import FormBuilderAdmin from '../packages/module-form-builder/ui/pages/FormBuilderAdmin.vue'
 import * as schemaUtils from '../packages/module-form-builder/ui/pages/schema-utils'
 
+vi.mock('~/components/form-builder/FormBuilderEmptyState.vue', () => ({
+  default: defineComponent({
+    name: 'FormBuilderEmptyState',
+    template: '<div data-testid="form-builder-empty-state" />',
+  }),
+}))
+
 const EdgeShadButton = defineComponent({
   emits: ['click'],
   template: '<button type="button" @click="$emit(\'click\')"><slot /></button>',
