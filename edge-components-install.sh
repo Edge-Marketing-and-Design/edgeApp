@@ -1,1 +1,0 @@
-git clone https://github.com/Edge-Marketing-and-Design/edge-vue-components.git edge
