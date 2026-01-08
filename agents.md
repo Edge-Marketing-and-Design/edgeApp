@@ -70,8 +70,10 @@ Adjust props (search, filters, pagination, save overrides) using the existing co
 ## Do/Don't
 - Do reuse Edge components (`dashboard`, `editor`, `cms` blocks, auth widgets) before adding new ones.
 - Do keep Firestore paths, queries, and role checks consistent with `edgeGlobal` helpers (`isAdminGlobal`, `getRoleName`, etc.).
+- Do use the `edge-*.sh` scripts (like `edge-pull.sh` and `edge-components-update.sh`) to sync/update the `edge` subtree instead of manual edits.
 - Don’t introduce TypeScript, Options API, raw Firebase SDK calls, or ad-hoc forms/tables when an Edge component exists.
 - Don’t edit code inside the `edge` folder unless absolutely required; it is a shared repo. If a change is unavoidable, keep it generic (no project-specific hacks) and call out the suggestion instead of making the edit when possible.
+- Don’t modify `storage.rules` or `firestore.rules`.
 
 ## Firebase Functions guidance
 - Review `functions/config.js`, `functions/edgeFirebase.js`, and `functions/cms.js` to mirror established patterns, but do not edit those files.

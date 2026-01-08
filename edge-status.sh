@@ -1,4 +1,14 @@
-git fetch edge-vue-components
-git diff --quiet edge-vue-components/main..HEAD -- edge \
-  && echo "edge is in sync with upstream" \
-  || echo "edge has local changes vs upstream"
+#!/usr/bin/env bash
+set -euo pipefail
+
+git fetch edge-vue-components >/dev/null 2>&1
+
+UP_TREE="$(git rev-parse edge-vue-components/main^{tree})"
+LOCAL_TREE="$(git rev-parse HEAD:edge)"
+
+if [ "$UP_TREE" = "$LOCAL_TREE" ]
+then
+  echo "edge is in sync with edge-vue-components/main"
+else
+  echo "edge differs from edge-vue-components/main"
+fi

@@ -67,7 +67,7 @@ const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketin
 const removeGitDirCommand = `rm -rf ${repoName}/.git`
 const installDependenciesCommand = `cd ${repoName} && pnpm store prune && pnpm install --force --ignore-scripts=false`
 const installFunctionDependenciesCommand = `cd ${repoName}/functions && npm install`
-const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edge-vue-components.git edge`
+// const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edge-vue-components.git edge`
 
 console.log(`Cloning with name ${repoName}...`)
 const checkedOut = runCommand(gitCheckoutCommand)
@@ -105,11 +105,11 @@ if (!installedFunctionDeps) {
   process.exit(1)
 }
 
-console.log(`Cloning Firebase Framework inside ${repoName}...`)
-const clonedFirebaseFramework = runCommand(cloneFirebaseFrameworkCommand)
-if (!clonedFirebaseFramework) {
-  process.exit(1)
-}
+// console.log(`Cloning Firebase Framework inside ${repoName}...`)
+// const clonedFirebaseFramework = runCommand(cloneFirebaseFrameworkCommand)
+// if (!clonedFirebaseFramework) {
+//   process.exit(1)
+// }
 
 console.log(`Successfully created ${repoName}!`)
 console.log(`cd into ${repoName} and run 'sh firebase_init.sh' to initialize your firebase project.`)
