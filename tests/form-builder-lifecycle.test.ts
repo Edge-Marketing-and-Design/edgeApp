@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { installFormBuilderModule, uninstallFormBuilderModule, upgradeFormBuilderModule } from '../packages/module-form-builder/server/lifecycle'
 import { formBuilderConfigDefaults } from '../packages/module-form-builder/schema/config'
-import * as migrationModule from '../packages/module-form-builder/migrations/0001-init'
+import { formBuilderMigrations } from '../packages/module-form-builder/migrations'
 
 const orgId = 'org-1'
 const siteId = 'site-1'
@@ -37,7 +37,7 @@ describe('form builder lifecycle', () => {
 
   it('runs migrations on upgrade', async () => {
     const { db } = createDb()
-    const runSpy = vi.spyOn(migrationModule, 'runMigration').mockResolvedValue()
+    const runSpy = vi.spyOn(formBuilderMigrations[0], 'run').mockResolvedValue()
 
     await upgradeFormBuilderModule({
       db,
