@@ -1,8 +1,9 @@
 <script setup lang="js">
 import { useVModel } from '@vueuse/core'
-import { File, FileCheck, FileCog, FileDown, FileMinus2, FilePen, FilePlus2, FileUp, FileWarning, FileX, Folder, FolderMinus, FolderOpen, FolderPen, FolderPlus } from 'lucide-vue-next'
+import { File, FileCheck, FileCog, FileDown, FileMinus2, FilePen, FilePlus2, FileUp, FileWarning, FileX, Folder, FolderMinus, FolderOpen, FolderPen, FolderPlus, Link } from 'lucide-vue-next'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
+import { useStructuredDataTemplates } from '@/edge/composables/structuredDataTemplates'
 
 const props = defineProps({
   prevModelValue: {
@@ -50,6 +51,15 @@ const router = useRouter()
 const modelValue = useVModel(props, 'modelValue', emit)
 const route = useRoute()
 const edgeFirebase = inject('edgeFirebase')
+const { buildPageStructuredData } = useStructuredDataTemplates()
+
+const isExternalLinkEntry = entry => entry?.item && typeof entry.item === 'object' && entry.item.type === 'external'
+const isPageEntry = entry => typeof entry?.item === 'string'
+const isRenameDisabled = entry => isPageEntry(entry) && !!entry?.disableRename
+const isDeleteDisabled = entry => isPageEntry(entry) && !!entry?.disableDelete
+const isLinkUrlSpecial = url => /^tel:|^mailto:/i.test(String(url || '').trim())
+const linkTarget = url => (isLinkUrlSpecial(url) ? null : '_blank')
+const linkRel = url => (isLinkUrlSpecial(url) ? null : 'noopener noreferrer')
 
 const normalizeForCompare = (value) => {
   if (Array.isArray(value))
@@ -142,17 +152,26 @@ const state = reactive({
   newPageName: '',
   indexPath: '',
   addMenu: false,
+  addLinkDialog: false,
   deletePage: {},
   renameItem: {},
   renameFolderOrPageDialog: false,
   deletePageDialog: false,
   pageSettings: false,
   pageData: {},
+  linkDialogMode: 'add',
+  linkName: '',
+  linkUrl: '',
+  linkTargetMenu: '',
+  linkTargetIndex: -1,
   newDocs: {
     pages: {
       name: { value: '' },
       content: { value: [] },
       blockIds: { value: [] },
+      metaTitle: { value: '' },
+      metaDescription: { value: '' },
+      structuredData: { value: buildPageStructuredData() },
       tags: { value: [] },
       allowedThemes: { value: [] },
     },
@@ -182,6 +201,8 @@ const templateTagItems = computed(() => {
   return [{ name: 'Quick Picks', title: 'Quick Picks' }, ...tagList]
 })
 
+const BLANK_TEMPLATE_ID = 'blank'
+
 const resetAddPageDialogState = () => {
   state.newPageName = ''
   state.templateFilter = 'quick-picks'
@@ -194,6 +215,21 @@ watch(() => state.addPageDialog, (open) => {
     resetAddPageDialogState()
 })
 
+const resetLinkDialogState = () => {
+  state.linkDialogMode = 'add'
+  state.linkName = ''
+  state.linkUrl = ''
+  state.linkTargetMenu = ''
+  state.linkTargetIndex = -1
+}
+
+watch(() => state.addLinkDialog, (open) => {
+  if (!open)
+    resetLinkDialogState()
+})
+
+const TEMPLATE_COLLECTION_PATH = computed(() => `${edgeGlobal.edgeState.organizationDocPath}/sites/templates/pages`)
+
 onMounted(async () => {
   if (!edgeGlobal.edgeState.organizationDocPath)
     return
@@ -201,8 +237,6 @@ onMounted(async () => {
   if (!edgeFirebase.data?.[path])
     await edgeFirebase.startSnapshot(path)
 })
-
-const TEMPLATE_COLLECTION_PATH = computed(() => `${edgeGlobal.edgeState.organizationDocPath}/sites/templates/pages`)
 
 const templatePagesCollection = computed(() => {
   return edgeFirebase.data?.[TEMPLATE_COLLECTION_PATH.value] || {}
@@ -265,8 +299,6 @@ watch(filteredTemplates, (templates) => {
     state.selectedTemplateId = BLANK_TEMPLATE_ID
 })
 
-const BLANK_TEMPLATE_ID = 'blank'
-
 const blankTemplateTile = {
   docId: BLANK_TEMPLATE_ID,
   name: 'Blank Page',
@@ -314,6 +346,8 @@ const templatePreviewBlocks = (template) => {
 }
 
 const renameFolderOrPageShow = (item) => {
+  if (isRenameDisabled(item))
+    return
   // Work on a copy so edits in the dialog do not mutate the live menu entry.
   state.renameItem = edgeGlobal.dupObject(item || {})
   state.renameItem.previousName = item?.name
@@ -328,6 +362,8 @@ const addPageShow = (menuName, isMenu = false) => {
 }
 
 const deletePageShow = (page) => {
+  if (isDeleteDisabled(page))
+    return
   state.deletePage = page
   state.deletePageDialog = true
 }
@@ -342,6 +378,9 @@ const collectRootLevelSlugs = (excludeName = '') => {
         if (typeof entry.item === 'string') {
           if (entry.name && entry.name !== excludeName)
             slugs.add(entry.name)
+        }
+        else if (isExternalLinkEntry(entry)) {
+          continue
         }
         // Top-level folder at "/<folder>/*"
         else if (entry && typeof entry.item === 'object') {
@@ -362,6 +401,9 @@ const collectRootLevelSlugs = (excludeName = '') => {
             if (entry.name && entry.name !== excludeName)
               slugs.add(entry.name)
           }
+          else if (isExternalLinkEntry(entry)) {
+            continue
+          }
           // Top-level folder at "/<folder>/*"
           else if (entry && typeof entry.item === 'object') {
             const key = Object.keys(entry.item)[0]
@@ -379,6 +421,9 @@ const collectRootLevelSlugs = (excludeName = '') => {
         if (typeof entry.item === 'string') {
           if (entry.name && entry.name !== excludeName)
             slugs.add(entry.name)
+        }
+        else if (isExternalLinkEntry(entry)) {
+          continue
         }
         // Top-level folder at "/<folder>/*"
         else if (entry && typeof entry.item === 'object') {
@@ -471,6 +516,8 @@ const hydrateSyncedBlocksFromSite = (blocks = []) => {
 
 const buildPagePayloadFromTemplate = (templateDoc, slug) => {
   const timestamp = Date.now()
+  const templateStructuredData = typeof templateDoc?.structuredData === 'string' ? templateDoc.structuredData.trim() : ''
+  const structuredData = templateDoc ? (templateStructuredData || buildPageStructuredData()) : buildPageStructuredData()
   const basePayload = {
     name: slug,
     content: [],
@@ -478,7 +525,7 @@ const buildPagePayloadFromTemplate = (templateDoc, slug) => {
     blockIds: [],
     metaTitle: '',
     metaDescription: '',
-    structuredData: '',
+    structuredData,
     doc_created_at: timestamp,
     last_updated: timestamp,
   }
@@ -492,10 +539,35 @@ const buildPagePayloadFromTemplate = (templateDoc, slug) => {
   copy.content = Array.isArray(copy.content) ? hydrateSyncedBlocksFromSite(copy.content) : []
   copy.postContent = Array.isArray(copy.postContent) ? hydrateSyncedBlocksFromSite(copy.postContent) : []
   copy.blockIds = deriveBlockIds(copy)
+  if (!String(copy.structuredData || '').trim())
+    copy.structuredData = structuredData
   return { ...basePayload, ...copy }
 }
 
 const renameFolderOrPageAction = async () => {
+  if (isRenameDisabled(state.renameItem)) {
+    state.renameFolderOrPageDialog = false
+    state.renameItem = {}
+    return
+  }
+  if (isExternalLinkEntry(state.renameItem)) {
+    const nextName = state.renameItem.name?.trim() || ''
+    if (!nextName) {
+      state.renameFolderOrPageDialog = false
+      state.renameItem = {}
+      return
+    }
+    const menuName = state.renameItem.menuName
+    const index = state.renameItem.index
+    if (menuName && Number.isInteger(index) && Array.isArray(modelValue.value[menuName])) {
+      const target = modelValue.value[menuName][index]
+      if (target)
+        target.name = nextName
+    }
+    state.renameFolderOrPageDialog = false
+    state.renameItem = {}
+    return
+  }
   const newSlug = slugGenerator(state.renameItem.name, state.renameItem.previousName || '')
 
   if (state.renameItem.name === state.renameItem.previousName) {
@@ -582,7 +654,70 @@ const addPageAction = async () => {
 
   state.addPageDialog = false
 }
+
+const addLinkShow = (menuName) => {
+  state.linkDialogMode = 'add'
+  state.linkTargetMenu = menuName
+  state.addLinkDialog = true
+}
+
+const editLinkShow = (menuName, index, entry) => {
+  state.linkDialogMode = 'edit'
+  state.linkTargetMenu = menuName
+  state.linkTargetIndex = index
+  state.linkName = entry?.name || ''
+  state.linkUrl = entry?.item?.url || ''
+  state.addLinkDialog = true
+}
+
+const linkDialogSchema = toTypedSchema(z.object({
+  name: z.string({
+    required_error: 'Name is required',
+  }).min(1, { message: 'Name is required' }),
+  url: z.string({
+    required_error: 'URL is required',
+  }).min(1, { message: 'URL is required' }),
+}))
+
+const submitLinkDialog = () => {
+  const name = state.linkName?.trim() || ''
+  const url = state.linkUrl?.trim() || ''
+  if (!name || !url)
+    return
+  const payload = { name, item: { type: 'external', url } }
+  if (!Array.isArray(modelValue.value[state.linkTargetMenu]))
+    modelValue.value[state.linkTargetMenu] = []
+  if (state.linkDialogMode === 'edit') {
+    const target = modelValue.value[state.linkTargetMenu]?.[state.linkTargetIndex]
+    if (target) {
+      target.name = name
+      target.item = { type: 'external', url }
+    }
+    else {
+      modelValue.value[state.linkTargetMenu].push(payload)
+    }
+  }
+  else {
+    modelValue.value[state.linkTargetMenu].push(payload)
+  }
+  state.addLinkDialog = false
+}
 const deletePageAction = async () => {
+  if (isDeleteDisabled(state.deletePage)) {
+    state.deletePageDialog = false
+    state.deletePage = {}
+    return
+  }
+  if (isExternalLinkEntry(state.deletePage)) {
+    const menuName = state.deletePage.menuName
+    const index = state.deletePage.index
+    if (menuName && Number.isInteger(index) && Array.isArray(modelValue.value[menuName])) {
+      modelValue.value[menuName].splice(index, 1)
+    }
+    state.deletePageDialog = false
+    state.deletePage = {}
+    return
+  }
   if (state.deletePage.item === '') {
     // deleting a folder
     delete modelValue.value[state.deletePage.name]
@@ -701,11 +836,11 @@ const theme = computed(() => {
 
 <template>
   <SidebarMenuItem v-for="({ menu, name: menuName }) in orderedMenus" :key="menuName">
-    <SidebarMenuButton class="!px-0 hover:!bg-transparent">
+    <SidebarMenuButton class="group !px-0 hover:!bg-transparent">
       <FolderOpen
-        class="mr-2"
+        class="mr-2 group-hover:text-black"
       />
-      <span v-if="!props.isTemplateSite">{{ menuName === 'Site Root' ? 'Site Menu' : menuName }}</span>
+      <span v-if="!props.isTemplateSite" class="hover:text-black !text-black">{{ menuName === 'Site Root' ? 'Site Menu' : menuName }}</span>
       <SidebarGroupAction class="absolute right-2 top-0 hover:!bg-transparent">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
@@ -724,6 +859,10 @@ const theme = computed(() => {
             <DropdownMenuItem @click="addPageShow(menuName, false)">
               <FilePlus2 />
               <span>New Page</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem v-if="!props.isTemplateSite" @click="addLinkShow(menuName)">
+              <Link />
+              <span>New Link</span>
             </DropdownMenuItem>
             <DropdownMenuItem v-if="!props.prevMenu && !props.isTemplateSite" @click="addPageShow(menuName, true)">
               <FolderPlus />
@@ -754,7 +893,7 @@ const theme = computed(() => {
         <template #item="{ element, index }">
           <div class="handle list-group-item">
             <edge-cms-menu
-              v-if="typeof element.item === 'object'"
+              v-if="typeof element.item === 'object' && !isExternalLinkEntry(element)"
               v-model="modelValue[menuName][index].item"
               :prev-menu="menuName"
               :prev-model-value="modelValue"
@@ -764,13 +903,33 @@ const theme = computed(() => {
               :is-template-site="props.isTemplateSite"
             />
             <SidebarMenuSubItem v-else class="relative">
-              <SidebarMenuSubButton :class="{ 'text-gray-400': element.item === '' }" as-child :is-active="element.item === props.page">
-                <NuxtLink :disabled="element.item === ''" :class="{ '!text-red-500': element.name === 'Deleting...' }" class="text-xs" :to="`${pageRouteBase}/${element.item}`">
+              <SidebarMenuSubButton
+                :class="{ 'text-gray-400': element.item === '' }"
+                as-child
+                :is-active="!isExternalLinkEntry(element) && element.item === props.page"
+              >
+                <NuxtLink
+                  v-if="!isExternalLinkEntry(element)"
+                  :disabled="element.item === ''"
+                  :class="{ '!text-red-500': element.name === 'Deleting...' }"
+                  class="text-xs"
+                  :to="`${pageRouteBase}/${element.item}`"
+                >
                   <Loader2 v-if="element.item === '' || element.name === 'Deleting...'" :class="{ '!text-red-500': element.name === 'Deleting...' }" class="w-4 h-4 animate-spin" />
                   <FileWarning v-else-if="isPublishedPageDiff(element.item) && !props.isTemplateSite" class="!text-yellow-600" />
                   <FileCheck v-else class="text-xs !text-green-700 font-normal" />
                   <span>{{ element.name }}</span>
                 </NuxtLink>
+                <a
+                  v-else
+                  :href="element.item?.url || '#'"
+                  class="text-xs inline-flex items-center gap-2"
+                  :target="linkTarget(element.item?.url)"
+                  :rel="linkRel(element.item?.url)"
+                >
+                  <Link class="w-4 h-4 text-muted-foreground" />
+                  <span>{{ element.name }}</span>
+                </a>
               </SidebarMenuSubButton>
               <div class="absolute right-0 -top-0.5">
                 <DropdownMenu>
@@ -787,34 +946,51 @@ const theme = computed(() => {
                       <File class="w-5 h-5" />  {{ ROOT_MENUS.includes(menuName) ? '' : menuName }}/{{ element.name }}
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem :disabled="edgeGlobal.edgeState.cmsPageWithUnsavedChanges === element.item" @click="showPageSettings(element)">
-                      <FileCog />
-                      <div class="flex flex-col">
-                        <span>Settings</span>
-                        <span v-if="edgeGlobal.edgeState.cmsPageWithUnsavedChanges === element.item" class="text-xs text-red-500">(Unsaved Changes)</span>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="!props.isTemplateSite && isPublishedPageDiff(element.item)" @click="publishPage(element.item)">
-                      <FileUp />
-                      Publish
-                    </DropdownMenuItem>
-                    <DropdownMenuItem @click="renameFolderOrPageShow(element)">
-                      <FilePen />
-                      <span>Rename</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem v-if="!props.isTemplateSite && isPublishedPageDiff(element.item) && isPublished(element.item)" @click="discardPageChanges(element.item)">
-                      <FileX />
-                      Discard Changes
-                    </DropdownMenuItem>
-                    <DropdownMenuItem v-if="!props.isTemplateSite && isPublished(element.item)" @click="unPublishPage(element.item)">
-                      <FileDown />
-                      Unpublish
-                    </DropdownMenuItem>
-                    <DropdownMenuItem class="text-destructive" @click="deletePageShow(element)">
-                      <FileMinus2 />
-                      <span>Delete</span>
-                    </DropdownMenuItem>
+                    <template v-if="!isExternalLinkEntry(element)">
+                      <DropdownMenuItem :disabled="edgeGlobal.edgeState.cmsPageWithUnsavedChanges === element.item" @click="showPageSettings(element)">
+                        <FileCog />
+                        <div class="flex flex-col">
+                          <span>Settings</span>
+                          <span v-if="edgeGlobal.edgeState.cmsPageWithUnsavedChanges === element.item" class="text-xs text-red-500">(Unsaved Changes)</span>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem v-if="!props.isTemplateSite && isPublishedPageDiff(element.item)" @click="publishPage(element.item)">
+                        <FileUp />
+                        Publish
+                      </DropdownMenuItem>
+                      <DropdownMenuItem :disabled="isRenameDisabled(element)" @click="renameFolderOrPageShow({ ...element, menuName, index })">
+                        <FilePen />
+                        <span>Rename</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem v-if="!props.isTemplateSite && isPublishedPageDiff(element.item) && isPublished(element.item)" @click="discardPageChanges(element.item)">
+                        <FileX />
+                        Discard Changes
+                      </DropdownMenuItem>
+                      <DropdownMenuItem v-if="!props.isTemplateSite && isPublished(element.item)" @click="unPublishPage(element.item)">
+                        <FileDown />
+                        Unpublish
+                      </DropdownMenuItem>
+                      <DropdownMenuItem class="text-destructive" :disabled="isDeleteDisabled(element)" @click="deletePageShow({ ...element, menuName, index })">
+                        <FileMinus2 />
+                        <span>Delete</span>
+                      </DropdownMenuItem>
+                    </template>
+                    <template v-else>
+                      <DropdownMenuItem @click="editLinkShow(menuName, index, element)">
+                        <Link />
+                        <span>Edit Link</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem @click="renameFolderOrPageShow({ ...element, menuName, index })">
+                        <FilePen />
+                        <span>Rename</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem class="text-destructive" @click="deletePageShow({ ...element, menuName, index })">
+                        <FileMinus2 />
+                        <span>Delete</span>
+                      </DropdownMenuItem>
+                    </template>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -831,6 +1007,7 @@ const theme = computed(() => {
       <DialogHeader>
         <DialogTitle class="text-left">
           <span v-if="state.deletePage.item === ''">Delete Folder "{{ state.deletePage.name }}"</span>
+          <span v-else-if="isExternalLinkEntry(state.deletePage)">Delete Link "{{ state.deletePage.name }}"</span>
           <span v-else>Delete Page "{{ state.deletePage.name }}"</span>
         </DialogTitle>
         <DialogDescription />
@@ -847,7 +1024,9 @@ const theme = computed(() => {
         <edge-shad-button
           variant="destructive" class="text-white w-full" @click="deletePageAction()"
         >
-          Delete Page
+          <span v-if="state.deletePage.item === ''">Delete Folder</span>
+          <span v-else-if="isExternalLinkEntry(state.deletePage)">Delete Link</span>
+          <span v-else>Delete Page</span>
         </edge-shad-button>
       </DialogFooter>
     </DialogContent>
@@ -962,6 +1141,32 @@ const theme = computed(() => {
       </edge-shad-form>
     </DialogContent>
   </edge-shad-dialog>
+  <edge-shad-dialog v-model="state.addLinkDialog">
+    <DialogContent class="pt-10">
+      <edge-shad-form :schema="linkDialogSchema" @submit="submitLinkDialog">
+        <DialogHeader>
+          <DialogTitle class="text-left">
+            <span v-if="state.linkDialogMode === 'edit'">Edit Link</span>
+            <span v-else>Add link to "{{ state.linkTargetMenu }}"</span>
+          </DialogTitle>
+          <DialogDescription />
+        </DialogHeader>
+        <div class="space-y-4">
+          <edge-shad-input v-model="state.linkName" name="name" label="Label" placeholder="Link label" />
+          <edge-shad-input v-model="state.linkUrl" name="url" label="URL" placeholder="https://example.com or tel:123-456-7890" />
+        </div>
+        <DialogFooter class="pt-2 flex justify-between">
+          <edge-shad-button type="button" variant="destructive" @click="state.addLinkDialog = false">
+            Cancel
+          </edge-shad-button>
+          <edge-shad-button type="submit" class="text-white bg-slate-800 hover:bg-slate-400 w-full">
+            <span v-if="state.linkDialogMode === 'edit'">Update Link</span>
+            <span v-else>Add Link</span>
+          </edge-shad-button>
+        </DialogFooter>
+      </edge-shad-form>
+    </DialogContent>
+  </edge-shad-dialog>
   <edge-shad-dialog
     v-model="state.renameFolderOrPageDialog"
   >
@@ -975,6 +1180,12 @@ const theme = computed(() => {
           <DialogDescription />
         </DialogHeader>
         <edge-shad-input v-model="state.renameItem.name" name="name" placeholder="New Name" />
+        <p
+          v-if="state.renameItem.item !== ''"
+          class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-700"
+        >
+          Renaming a page changes its URL. If search engines already indexed the old URL, rankings may drop temporarily.
+        </p>
         <DialogFooter class="pt-2 flex justify-between">
           <edge-shad-button variant="destructive" @click="state.renameFolderOrPageDialog = false">
             Cancel
@@ -1024,7 +1235,7 @@ const theme = computed(() => {
               :allow-additions="true"
             />
             <edge-shad-select-tags
-              v-if="props.themeOptions.length"
+              v-if="props.isTemplateSite && props.themeOptions.length"
               :model-value="Array.isArray(slotProps.workingDoc.allowedThemes) ? slotProps.workingDoc.allowedThemes : []"
               name="allowedThemes"
               label="Allowed Themes"
