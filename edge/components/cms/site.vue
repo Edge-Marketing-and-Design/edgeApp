@@ -1,8 +1,9 @@
 <script setup lang="js">
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
+import { ArrowLeft, CircleAlert, FileCheck, FilePenLine, FileStack, FolderCog, FolderDown, FolderUp, FolderX, Inbox, Loader2, Mail, MailOpen, MoreHorizontal } from 'lucide-vue-next'
+import { useStructuredDataTemplates } from '@/edge/composables/structuredDataTemplates'
 
-import { ArrowLeft, CircleAlert, FileCheck, FilePenLine, FileStack, FolderCog, FolderDown, FolderUp, FolderX, Loader2, MoreHorizontal } from 'lucide-vue-next'
 const props = defineProps({
   site: {
     type: String,
@@ -15,6 +16,8 @@ const props = defineProps({
   },
 })
 const edgeFirebase = inject('edgeFirebase')
+const { createDefaults: createSiteSettingsDefaults, createNewDocSchema: createSiteSettingsNewDocSchema } = useSiteSettingsTemplate()
+const { buildPageStructuredData } = useStructuredDataTemplates()
 
 const normalizeForCompare = (value) => {
   if (Array.isArray(value))
@@ -34,31 +37,15 @@ const areEqualNormalized = (a, b) => stableSerialize(a) === stableSerialize(b)
 const isTemplateSite = computed(() => props.site === 'templates')
 const router = useRouter()
 
+const SUBMISSION_IGNORE_FIELDS = new Set(['orgId', 'siteId', 'pageId', 'blockId'])
+const SUBMISSION_LABEL_KEYS = ['name', 'fullName', 'firstName', 'lastName', 'email', 'phone']
+const SUBMISSION_MESSAGE_KEYS = ['message', 'comments', 'notes', 'inquiry', 'details']
+
 const state = reactive({
   filter: '',
   userFilter: 'all',
   newDocs: {
-    sites: {
-      name: { bindings: { 'field-type': 'text', 'label': 'Name' }, cols: '12', value: '' },
-      theme: { bindings: { 'field-type': 'collection', 'label': 'Themes', 'collection-path': 'themes' }, cols: '12', value: '' },
-      allowedThemes: { bindings: { 'field-type': 'tags', 'label': 'Allowed Themes' }, cols: '12', value: [] },
-      logo: { bindings: { 'field-type': 'text', 'label': 'Dark logo' }, cols: '12', value: '' },
-      logoLight: { bindings: { 'field-type': 'text', 'label': 'Logo Light' }, cols: '12', value: '' },
-      logoText: { bindings: { 'field-type': 'text', 'label': 'Logo Text' }, cols: '12', value: '' },
-      logoType: { bindings: { 'field-type': 'select', 'label': 'Logo Type', 'items': ['image', 'text'] }, cols: '12', value: 'image' },
-      brandLogoDark: { bindings: { 'field-type': 'text', 'label': 'Brand Logo Dark' }, cols: '12', value: '' },
-      brandLogoLight: { bindings: { 'field-type': 'text', 'label': 'Brand Logo Light' }, cols: '12', value: '' },
-      favicon: { bindings: { 'field-type': 'text', 'label': 'Favicon' }, cols: '12', value: '' },
-      menuPosition: { bindings: { 'field-type': 'select', 'label': 'Menu Position', 'items': ['left', 'center', 'right'] }, cols: '12', value: 'right' },
-      domains: { bindings: { 'field-type': 'tags', 'label': 'Domains', 'helper': 'Add or remove domains' }, cols: '12', value: [] },
-      contactEmail: { bindings: { 'field-type': 'text', 'label': 'Contact Email' }, cols: '12', value: '' },
-      metaTitle: { bindings: { 'field-type': 'text', 'label': 'Meta Title' }, cols: '12', value: '' },
-      metaDescription: { bindings: { 'field-type': 'textarea', 'label': 'Meta Description' }, cols: '12', value: '' },
-      structuredData: { bindings: { 'field-type': 'textarea', 'label': 'Structured Data (JSON-LD)' }, cols: '12', value: '' },
-      users: { bindings: { 'field-type': 'users', 'label': 'Users', 'hint': 'Choose users' }, cols: '12', value: [] },
-      aiAgentUserId: { bindings: { 'field-type': 'select', 'label': 'Agent Data for AI to use to build initial site' }, cols: '12', value: '' },
-      aiInstructions: { bindings: { 'field-type': 'textarea', 'label': 'Additional AI Instructions' }, cols: '12', value: '' },
-    },
+    sites: createSiteSettingsNewDocSchema(),
   },
   mounted: false,
   page: {},
@@ -67,20 +54,21 @@ const state = reactive({
   siteSettings: false,
   hasError: false,
   updating: false,
-  logoPickerOpen: false,
-  logoLightPickerOpen: false,
-  brandLogoDarkPickerOpen: false,
-  brandLogoLightPickerOpen: false,
-  faviconPickerOpen: false,
   aiSectionOpen: false,
   selectedPostId: '',
   viewMode: 'pages',
+  submissionFilter: '',
+  selectedSubmissionId: '',
+  publishSiteLoading: false,
 })
 
 const pageInit = {
   name: '',
   content: [],
   blockIds: [],
+  metaTitle: '',
+  metaDescription: '',
+  structuredData: buildPageStructuredData(),
 }
 
 const schemas = {
@@ -95,6 +83,7 @@ const schemas = {
         path: ['domains', 0],
       }),
     contactEmail: z.string().optional(),
+    contactPhone: z.string().optional(),
     theme: z.string({
       required_error: 'Theme is required',
     }).min(1, { message: 'Theme is required' }),
@@ -110,6 +99,15 @@ const schemas = {
     metaTitle: z.string().optional(),
     metaDescription: z.string().optional(),
     structuredData: z.string().optional(),
+    trackingFacebookPixel: z.string().optional(),
+    trackingGoogleAnalytics: z.string().optional(),
+    trackingAdroll: z.string().optional(),
+    socialFacebook: z.string().optional(),
+    socialInstagram: z.string().optional(),
+    socialTwitter: z.string().optional(),
+    socialLinkedIn: z.string().optional(),
+    socialYouTube: z.string().optional(),
+    socialTikTok: z.string().optional(),
     aiAgentUserId: z.string().optional(),
     aiInstructions: z.string().optional(),
   })),
@@ -126,6 +124,185 @@ const isAdmin = computed(() => {
 
 const siteData = computed(() => {
   return edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/sites`]?.[props.site] || {}
+})
+const publishedSiteSettings = computed(() => {
+  return edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/published-site-settings`]?.[props.site] || {}
+})
+const domainError = computed(() => {
+  return String(publishedSiteSettings.value?.domainError || '').trim()
+})
+
+const submissionsCollection = computed(() => `sites/${props.site}/lead-actions`)
+const isViewingSubmissions = computed(() => state.viewMode === 'submissions')
+const submissionsMap = computed(() => {
+  return edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/${submissionsCollection.value}`] || {}
+})
+const selectedSubmission = computed(() => {
+  return submissionsMap.value?.[state.selectedSubmissionId] || null
+})
+const unreadSubmissionsCount = computed(() => {
+  return Object.values(submissionsMap.value || {}).filter((item) => {
+    if (item?.action !== 'Contact Form')
+      return false
+    return !item.readAt
+  }).length
+})
+
+const formatSubmissionValue = (value) => {
+  if (value === undefined || value === null)
+    return ''
+  if (typeof value === 'string')
+    return value
+  if (typeof value === 'number' || typeof value === 'boolean')
+    return String(value)
+  try {
+    return JSON.stringify(value)
+  }
+  catch {
+    return String(value)
+  }
+}
+
+const collectSubmissionEntries = (data) => {
+  if (!data || typeof data !== 'object')
+    return []
+  const entries = []
+  const seen = new Set()
+  const addEntry = (key, value) => {
+    const normalizedKey = String(key || '').trim()
+    if (!normalizedKey)
+      return
+    const lowerKey = normalizedKey.toLowerCase()
+    if (SUBMISSION_IGNORE_FIELDS.has(normalizedKey) || SUBMISSION_IGNORE_FIELDS.has(lowerKey))
+      return
+    if (value === undefined || value === null || value === '')
+      return
+    if (seen.has(lowerKey))
+      return
+    entries.push({ key: normalizedKey, value })
+    seen.add(lowerKey)
+  }
+
+  const addArrayFields = (fields) => {
+    if (!Array.isArray(fields))
+      return
+    fields.forEach((field) => {
+      if (!field)
+        return
+      const name = field.field || field.name || field.fieldName || field.label || field.title
+      const value = field.value ?? field.fieldValue ?? field.val
+      addEntry(name, value)
+    })
+  }
+
+  addArrayFields(data.fields)
+  addArrayFields(data.formFields)
+  addArrayFields(data.formData)
+
+  if (data.fields && typeof data.fields === 'object' && !Array.isArray(data.fields)) {
+    Object.entries(data.fields).forEach(([key, value]) => addEntry(key, value))
+  }
+
+  Object.entries(data).forEach(([key, value]) => {
+    if (key === 'fields' || key === 'formFields' || key === 'formData')
+      return
+    addEntry(key, value)
+  })
+
+  return entries.sort((a, b) => String(a.key).localeCompare(String(b.key)))
+}
+
+const getSubmissionLabel = (data) => {
+  if (!data || typeof data !== 'object')
+    return 'Contact Form Submission'
+  const name = [data.firstName, data.lastName].filter(Boolean).join(' ').trim()
+  if (name)
+    return name
+  const direct = SUBMISSION_LABEL_KEYS.find(key => String(data[key] || '').trim().length)
+  if (direct)
+    return String(data[direct]).trim()
+  return 'Contact Form Submission'
+}
+
+const getSubmissionMessage = (data) => {
+  if (!data || typeof data !== 'object')
+    return ''
+  const direct = SUBMISSION_MESSAGE_KEYS.find(key => String(data[key] || '').trim().length)
+  if (direct)
+    return String(data[direct]).trim()
+  return ''
+}
+
+const formatSubmissionKey = (key) => {
+  return String(key || '')
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .replace(/^./, str => str.toUpperCase())
+}
+
+const getSubmissionEntriesPreview = (data, limit = 6) => {
+  return collectSubmissionEntries(data).slice(0, limit)
+}
+
+const formatSubmissionTimestamp = (timestamp) => {
+  const date = timestamp?.toDate?.() || (timestamp ? new Date(timestamp) : null)
+  if (!date || Number.isNaN(date.getTime()))
+    return ''
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+const isSubmissionUnread = item => item && item.action === 'Contact Form' && !item.readAt
+
+const markSubmissionRead = async (docId) => {
+  const item = submissionsMap.value?.[docId]
+  if (!item || !isSubmissionUnread(item))
+    return
+  try {
+    await edgeFirebase.changeDoc(
+      `${edgeGlobal.edgeState.organizationDocPath}/${submissionsCollection.value}`,
+      docId,
+      { readAt: new Date().toISOString() },
+    )
+  }
+  catch (error) {
+    console.error('Failed to mark submission as read', error)
+  }
+}
+
+const markSubmissionUnread = async (docId) => {
+  const item = submissionsMap.value?.[docId]
+  if (!item || isSubmissionUnread(item))
+    return
+  try {
+    await edgeFirebase.changeDoc(
+      `${edgeGlobal.edgeState.organizationDocPath}/${submissionsCollection.value}`,
+      docId,
+      { readAt: null },
+    )
+  }
+  catch (error) {
+    console.error('Failed to mark submission as unread', error)
+  }
+}
+
+const getSubmissionSortTime = (item) => {
+  const date = item?.timestamp?.toDate?.() || (item?.timestamp ? new Date(item.timestamp) : null)
+  if (!date || Number.isNaN(date.getTime()))
+    return 0
+  return date.getTime()
+}
+
+const sortedSubmissionIds = computed(() => {
+  return Object.values(submissionsMap.value || {})
+    .filter(item => item?.docId)
+    .map(item => ({ id: item.docId, time: getSubmissionSortTime(item) }))
+    .sort((a, b) => b.time - a.time)
+    .map(item => item.id)
 })
 
 const themeCollection = computed(() => {
@@ -196,6 +373,8 @@ const menuPositionOptions = [
   { value: 'center', label: 'Center' },
   { value: 'right', label: 'Right' },
 ]
+
+const isExternalLinkEntry = entry => entry?.item && typeof entry.item === 'object' && entry.item.type === 'external'
 
 const TEMPLATE_PAGES_PATH = computed(() => `${edgeGlobal.edgeState.organizationDocPath}/sites/templates/pages`)
 const seededSiteIds = new Set()
@@ -279,6 +458,7 @@ const deriveBlockIdsFromDoc = (doc = {}) => {
 
 const buildPagePayloadFromTemplateDoc = (templateDoc, slug, displayName = '') => {
   const timestamp = Date.now()
+  const templateStructuredData = typeof templateDoc?.structuredData === 'string' ? templateDoc.structuredData.trim() : ''
   const payload = {
     name: displayName?.trim()?.length ? displayName : titleFromSlug(slug),
     slug,
@@ -290,7 +470,7 @@ const buildPagePayloadFromTemplateDoc = (templateDoc, slug, displayName = '') =>
     blockIds: [],
     metaTitle: templateDoc?.metaTitle || '',
     metaDescription: templateDoc?.metaDescription || '',
-    structuredData: templateDoc?.structuredData || '',
+    structuredData: templateStructuredData || buildPageStructuredData(),
     doc_created_at: timestamp,
     last_updated: timestamp,
   }
@@ -310,6 +490,8 @@ const buildMenusFromDefaultPages = (defaultPages = []) => {
     menus['Site Root'].push({
       name: slug,
       item: entry.pageId,
+      disableRename: !!entry?.disableRename,
+      disableDelete: !!entry?.disableDelete,
     })
   }
   return menus
@@ -321,6 +503,37 @@ const deriveThemeMenus = (themeDoc = {}) => {
   if (Array.isArray(themeDoc?.defaultPages) && themeDoc.defaultPages.length)
     return buildMenusFromDefaultPages(themeDoc.defaultPages)
   return null
+}
+
+const shouldApplyThemeSetting = (currentValue, baseValue) => {
+  if (currentValue === undefined || currentValue === null)
+    return true
+  if (typeof currentValue === 'string')
+    return !currentValue.trim() || areEqualNormalized(currentValue, baseValue)
+  if (Array.isArray(currentValue))
+    return currentValue.length === 0 || areEqualNormalized(currentValue, baseValue)
+  if (typeof currentValue === 'object')
+    return Object.keys(currentValue).length === 0 || areEqualNormalized(currentValue, baseValue)
+  return areEqualNormalized(currentValue, baseValue)
+}
+
+const buildThemeSettingsPayload = (themeDoc = {}, siteDoc = {}) => {
+  if (!themeDoc?.defaultSiteSettings || typeof themeDoc.defaultSiteSettings !== 'object' || Array.isArray(themeDoc.defaultSiteSettings))
+    return {}
+  const baseDefaults = createSiteSettingsDefaults()
+  const payload = {}
+  for (const [key, baseValue] of Object.entries(baseDefaults)) {
+    if (!(key in themeDoc.defaultSiteSettings))
+      continue
+    let themeValue = themeDoc.defaultSiteSettings[key]
+    if (key === 'structuredData' && typeof themeValue === 'string' && !themeValue.trim())
+      themeValue = baseValue
+    if (areEqualNormalized(themeValue, baseValue))
+      continue
+    if (shouldApplyThemeSetting(siteDoc?.[key], baseValue))
+      payload[key] = themeValue
+  }
+  return payload
 }
 
 const ensureTemplatePagesSnapshot = async () => {
@@ -339,6 +552,10 @@ const duplicateEntriesWithPages = async (entries = [], options) => {
   for (const entry of entries) {
     if (!entry || entry.item == null)
       continue
+    if (isExternalLinkEntry(entry)) {
+      next.push(edgeGlobal.dupObject(entry))
+      continue
+    }
     if (typeof entry.item === 'string' || entry.item === '') {
       const templateDoc = templatePages?.[entry.item] || null
       const slug = ensureUniqueSlug(entry.name || '', templateDoc, usedSlugs)
@@ -376,21 +593,26 @@ const duplicateEntriesWithPages = async (entries = [], options) => {
   return next
 }
 
-const seedNewSiteFromTheme = async (siteId, themeId) => {
+const seedNewSiteFromTheme = async (siteId, themeId, siteDoc) => {
   if (!siteId || !themeId)
     return
   const themeDoc = themeCollection.value?.[themeId]
   if (!themeDoc)
     return
+  const updatePayload = {}
   const themeMenus = deriveThemeMenus(themeDoc)
-  if (!themeMenus)
-    return
-  const templatePages = await ensureTemplatePagesSnapshot()
-  const usedSlugs = new Set()
-  const seededMenus = ensureMenuBuckets(themeMenus)
-  seededMenus['Site Root'] = await duplicateEntriesWithPages(seededMenus['Site Root'], { templatePages, siteId, usedSlugs })
-  seededMenus['Not In Menu'] = await duplicateEntriesWithPages(seededMenus['Not In Menu'], { templatePages, siteId, usedSlugs })
-  await edgeFirebase.changeDoc(`${edgeGlobal.edgeState.organizationDocPath}/sites`, siteId, { menus: seededMenus })
+  if (themeMenus) {
+    const templatePages = await ensureTemplatePagesSnapshot()
+    const usedSlugs = new Set()
+    const seededMenus = ensureMenuBuckets(themeMenus)
+    seededMenus['Site Root'] = await duplicateEntriesWithPages(seededMenus['Site Root'], { templatePages, siteId, usedSlugs })
+    seededMenus['Not In Menu'] = await duplicateEntriesWithPages(seededMenus['Not In Menu'], { templatePages, siteId, usedSlugs })
+    updatePayload.menus = seededMenus
+  }
+  const settingsPayload = buildThemeSettingsPayload(themeDoc, siteDoc || {})
+  Object.assign(updatePayload, settingsPayload)
+  if (Object.keys(updatePayload).length)
+    await edgeFirebase.changeDoc(`${edgeGlobal.edgeState.organizationDocPath}/sites`, siteId, updatePayload)
 }
 
 const handleNewSiteSaved = async ({ docId, data, collection }) => {
@@ -405,7 +627,7 @@ const handleNewSiteSaved = async ({ docId, data, collection }) => {
     return
   seededSiteIds.add(docId)
   try {
-    await seedNewSiteFromTheme(docId, themeId)
+    await seedNewSiteFromTheme(docId, themeId, data)
   }
   catch (error) {
     console.error('Failed to seed site from theme defaults', error)
@@ -438,6 +660,12 @@ onBeforeMount(async () => {
   if (!edgeFirebase.data?.[`organizations/${edgeGlobal.edgeState.currentOrganization}/sites/${props.site}/published_posts`]) {
     await edgeFirebase.startSnapshot(`organizations/${edgeGlobal.edgeState.currentOrganization}/sites/${props.site}/published_posts`)
   }
+  if (props.site !== 'templates') {
+    const submissionsPath = `organizations/${edgeGlobal.edgeState.currentOrganization}/sites/${props.site}/lead-actions`
+    if (!edgeFirebase.data?.[submissionsPath]) {
+      await edgeFirebase.startSnapshot(submissionsPath, [{ field: 'action', operator: '==', value: 'Contact Form' }])
+    }
+  }
   state.mounted = true
 })
 
@@ -464,9 +692,19 @@ const isSiteDiff = computed(() => {
       favicon: publishedSite.favicon,
       menuPosition: publishedSite.menuPosition,
       contactEmail: publishedSite.contactEmail,
+      contactPhone: publishedSite.contactPhone,
       metaTitle: publishedSite.metaTitle,
       metaDescription: publishedSite.metaDescription,
       structuredData: publishedSite.structuredData,
+      trackingFacebookPixel: publishedSite.trackingFacebookPixel,
+      trackingGoogleAnalytics: publishedSite.trackingGoogleAnalytics,
+      trackingAdroll: publishedSite.trackingAdroll,
+      socialFacebook: publishedSite.socialFacebook,
+      socialInstagram: publishedSite.socialInstagram,
+      socialTwitter: publishedSite.socialTwitter,
+      socialLinkedIn: publishedSite.socialLinkedIn,
+      socialYouTube: publishedSite.socialYouTube,
+      socialTikTok: publishedSite.socialTikTok,
     }, {
       domains: siteData.value.domains,
       menus: siteData.value.menus,
@@ -481,9 +719,19 @@ const isSiteDiff = computed(() => {
       favicon: siteData.value.favicon,
       menuPosition: siteData.value.menuPosition,
       contactEmail: siteData.value.contactEmail,
+      contactPhone: siteData.value.contactPhone,
       metaTitle: siteData.value.metaTitle,
       metaDescription: siteData.value.metaDescription,
       structuredData: siteData.value.structuredData,
+      trackingFacebookPixel: siteData.value.trackingFacebookPixel,
+      trackingGoogleAnalytics: siteData.value.trackingGoogleAnalytics,
+      trackingAdroll: siteData.value.trackingAdroll,
+      socialFacebook: siteData.value.socialFacebook,
+      socialInstagram: siteData.value.socialInstagram,
+      socialTwitter: siteData.value.socialTwitter,
+      socialLinkedIn: siteData.value.socialLinkedIn,
+      socialYouTube: siteData.value.socialYouTube,
+      socialTikTok: siteData.value.socialTikTok,
     })
   }
   return false
@@ -512,9 +760,19 @@ const discardSiteSettings = async () => {
       favicon: publishedSite.favicon || '',
       menuPosition: publishedSite.menuPosition || '',
       contactEmail: publishedSite.contactEmail || '',
+      contactPhone: publishedSite.contactPhone || '',
       metaTitle: publishedSite.metaTitle || '',
       metaDescription: publishedSite.metaDescription || '',
       structuredData: publishedSite.structuredData || '',
+      trackingFacebookPixel: publishedSite.trackingFacebookPixel || '',
+      trackingGoogleAnalytics: publishedSite.trackingGoogleAnalytics || '',
+      trackingAdroll: publishedSite.trackingAdroll || '',
+      socialFacebook: publishedSite.socialFacebook || '',
+      socialInstagram: publishedSite.socialInstagram || '',
+      socialTwitter: publishedSite.socialTwitter || '',
+      socialLinkedIn: publishedSite.socialLinkedIn || '',
+      socialYouTube: publishedSite.socialYouTube || '',
+      socialTikTok: publishedSite.socialTikTok || '',
     })
   }
 }
@@ -531,6 +789,19 @@ const unPublishSite = async () => {
 const publishSite = async () => {
   for (const [pageId, pageData] of Object.entries(edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/sites/${props.site}/pages`] || {})) {
     await edgeFirebase.storeDoc(`${edgeGlobal.edgeState.organizationDocPath}/sites/${props.site}/published`, pageData)
+  }
+}
+
+const publishSiteAndSettings = async () => {
+  if (state.publishSiteLoading)
+    return
+  state.publishSiteLoading = true
+  try {
+    await publishSiteSettings()
+    await publishSite()
+  }
+  finally {
+    state.publishSiteLoading = false
   }
 }
 
@@ -613,6 +884,8 @@ const setViewMode = (mode) => {
     return
   state.viewMode = mode
   state.selectedPostId = ''
+  if (mode !== 'submissions')
+    state.selectedSubmissionId = ''
   if (props.page)
     router.replace(pageRouteBase.value)
 }
@@ -662,19 +935,6 @@ watch(pages, (pagesCollection) => {
   state.menus = nextMenu
 }, { immediate: true, deep: true })
 
-watch(() => state.siteSettings, (open) => {
-  if (!open)
-    state.logoPickerOpen = false
-  if (!open)
-    state.logoLightPickerOpen = false
-  if (!open)
-    state.brandLogoDarkPickerOpen = false
-  if (!open)
-    state.brandLogoLightPickerOpen = false
-  if (!open)
-    state.faviconPickerOpen = false
-})
-
 watch(() => props.page, (next) => {
   if (next) {
     state.selectedPostId = ''
@@ -685,6 +945,20 @@ watch(() => props.page, (next) => {
     state.viewMode = 'posts'
   }
 })
+
+watch([isViewingSubmissions, sortedSubmissionIds], () => {
+  if (!isViewingSubmissions.value)
+    return
+  const ids = sortedSubmissionIds.value
+  if (!ids.length) {
+    state.selectedSubmissionId = ''
+    return
+  }
+  if (!state.selectedSubmissionId || !submissionsMap.value?.[state.selectedSubmissionId]) {
+    state.selectedSubmissionId = ids[0]
+    markSubmissionRead(ids[0])
+  }
+}, { immediate: true })
 
 watch(() => state.menus, async (newVal) => {
   if (areEqualNormalized(siteData.value.menus, newVal)) {
@@ -701,6 +975,8 @@ watch(() => state.menus, async (newVal) => {
   const newPage = JSON.parse(JSON.stringify(pageInit))
   for (const [menuName, items] of Object.entries(newVal)) {
     for (const [index, item] of items.entries()) {
+      if (isExternalLinkEntry(item))
+        continue
       if (typeof item.item === 'string') {
         if (item.item === '') {
           newPage.name = item.name
@@ -716,9 +992,11 @@ watch(() => state.menus, async (newVal) => {
           }
         }
       }
-      if (typeof item.item === 'object') {
+      if (typeof item.item === 'object' && !isExternalLinkEntry(item)) {
         for (const [subMenuName, subItems] of Object.entries(item.item)) {
           for (const [subIndex, subItem] of subItems.entries()) {
+            if (isExternalLinkEntry(subItem))
+              continue
             if (typeof subItem.item === 'string') {
               if (subItem.item === '') {
                 newPage.name = subItem.name
@@ -988,18 +1266,45 @@ const pageSettingsUpdated = async (pageData) => {
               <FilePenLine class="h-4 w-4" />
               Posts
             </edge-shad-button>
+            <edge-shad-button
+              variant="ghost"
+              size="sm"
+              class="h-8 px-4 text-xs gap-2 rounded-full"
+              :class="state.viewMode === 'submissions' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'"
+              @click="setViewMode('submissions')"
+            >
+              <Inbox class="h-4 w-4" />
+              Inbox
+              <span
+                v-if="unreadSubmissionsCount"
+                class="ml-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-primary-foreground"
+              >
+                {{ unreadSubmissionsCount }}
+              </span>
+            </edge-shad-button>
           </div>
         </div>
         <div v-if="!isTemplateSite" class="flex items-center gap-3 justify-end">
           <Transition name="fade" mode="out-in">
-            <div v-if="isSiteDiff" key="unpublished" class="flex gap-1 items-center bg-yellow-100 text-xs py-1 px-3 text-yellow-800 rounded">
-              <CircleAlert class="!text-yellow-800 w-3 h-3" />
-              <span class="font-medium text-[10px]">
-                Unpublished Settings
-              </span>
+            <div v-if="isSiteDiff || isAnyPagesDiff" key="unpublished" class="flex gap-2 items-center">
+              <div class="flex gap-1 items-center bg-yellow-100 text-xs py-1 px-3 text-yellow-800 rounded">
+                <CircleAlert class="!text-yellow-800 w-3 h-6" />
+                <span class="font-medium text-[10px]">
+                  {{ isSiteDiff ? 'Unpublished Settings' : 'Unpublished Pages' }}
+                </span>
+              </div>
+              <edge-shad-button
+                class="h-8 px-4 text-xs gap-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                :disabled="state.publishSiteLoading"
+                @click="publishSiteAndSettings"
+              >
+                <Loader2 v-if="state.publishSiteLoading" class="h-3.5 w-3.5 animate-spin" />
+                <FolderUp v-else class="h-3.5 w-3.5" />
+                Publish Site
+              </edge-shad-button>
             </div>
             <div v-else key="published" class="flex gap-1 items-center bg-green-100 text-xs py-1 px-3 text-green-800 rounded">
-              <FileCheck class="!text-green-800 w-3 h-3" />
+              <FileCheck class="!text-green-800 w-3 h-6" />
               <span class="font-medium text-[10px]">
                 Settings Published
               </span>
@@ -1050,7 +1355,147 @@ const pageSettingsUpdated = async (pageData) => {
       </div>
       <div class="flex-1">
         <Transition name="fade" mode="out-in">
-          <div v-if="isEditingPost" class="w-full h-full">
+          <div v-if="isViewingSubmissions" class="flex-1 overflow-y-auto p-6">
+            <edge-dashboard
+              :collection="submissionsCollection"
+              query-field="action"
+              query-value="Contact Form"
+              query-operator="=="
+              :filter="state.submissionFilter"
+              :filter-fields="['data.name', 'data.fullName', 'data.firstName', 'data.lastName', 'data.email', 'data.phone', 'data.message', 'data.comments', 'data.notes']"
+              sort-field="timestamp"
+              sort-direction="desc"
+              class="pt-0 flex-1"
+            >
+              <template #header-start>
+                <Inbox class="mr-2 h-4 w-4" />
+                Submissions
+                <!-- <span class="ml-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Contact Form
+                </span> -->
+              </template>
+              <template #header-center>
+                <div class="w-full px-4 md:px-6">
+                  <edge-shad-input
+                    v-model="state.submissionFilter"
+                    name="submissionFilter"
+                    placeholder="Search submissions..."
+                    class="w-full"
+                  />
+                </div>
+              </template>
+              <template #header-end="slotProps">
+                <span class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  {{ slotProps.recordCount }} total • {{ unreadSubmissionsCount }} unread
+                </span>
+              </template>
+              <template #list="slotProps">
+                <div class="grid gap-4 pt-4 w-full md:grid-cols-[320px_minmax(0,1fr)]">
+                  <div class="space-y-2">
+                    <div
+                      v-for="item in slotProps.filtered"
+                      :key="item.docId"
+                      role="button"
+                      tabindex="0"
+                      class="group rounded-lg border p-3 text-left transition hover:border-primary/60 hover:bg-muted/60"
+                      :class="state.selectedSubmissionId === item.docId ? 'border-primary/70 bg-muted/70 shadow-sm' : 'border-border/60 bg-card'"
+                      @click="state.selectedSubmissionId = item.docId; markSubmissionRead(item.docId)"
+                      @keyup.enter="state.selectedSubmissionId = item.docId; markSubmissionRead(item.docId)"
+                    >
+                      <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0">
+                          <div class="truncate text-sm font-semibold text-foreground">
+                            {{ getSubmissionLabel(item.data) }}
+                          </div>
+                          <div v-if="item.data?.pageName" class="truncate text-xs text-muted-foreground">
+                            {{ item.data.pageName }}
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2 text-[11px] text-muted-foreground">
+                          <span v-if="isSubmissionUnread(item)" class="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                            Unread
+                          </span>
+                          <span>{{ formatSubmissionTimestamp(item.timestamp) }}</span>
+                        </div>
+                      </div>
+                      <div v-if="getSubmissionMessage(item.data)" class="mt-2 text-xs text-muted-foreground line-clamp-2">
+                        {{ getSubmissionMessage(item.data) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Card v-if="selectedSubmission" class="border border-border/70 bg-card/95 shadow-sm">
+                      <CardHeader class="flex flex-col gap-2">
+                        <div class="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <CardTitle class="text-xl">
+                              {{ getSubmissionLabel(selectedSubmission.data) }}
+                            </CardTitle>
+                            <CardDescription class="text-xs">
+                              {{ formatSubmissionTimestamp(selectedSubmission.timestamp) }}
+                            </CardDescription>
+                          </div>
+                          <div class="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <span>
+                              {{ selectedSubmission.data?.pageName || selectedSubmission.data?.pageId || 'Site submission' }}
+                            </span>
+                            <edge-shad-button
+                              v-if="isSubmissionUnread(selectedSubmission)"
+                              size="sm"
+                              variant="outline"
+                              class="h-7 gap-2 text-[11px]"
+                              @click="markSubmissionRead(selectedSubmission.docId)"
+                            >
+                              <MailOpen class="h-3.5 w-3.5" />
+                              Mark read
+                            </edge-shad-button>
+                            <edge-shad-button
+                              v-else
+                              size="sm"
+                              variant="outline"
+                              class="h-7 gap-2 text-[11px]"
+                              @click="markSubmissionUnread(selectedSubmission.docId)"
+                            >
+                              <Mail class="h-3.5 w-3.5" />
+                              Mark unread
+                            </edge-shad-button>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent class="space-y-4">
+                        <div
+                          v-if="getSubmissionMessage(selectedSubmission.data)"
+                          class="rounded-lg border border-border/60 bg-muted/40 p-3 text-sm text-foreground"
+                        >
+                          {{ getSubmissionMessage(selectedSubmission.data) }}
+                        </div>
+                        <div class="grid gap-3 md:grid-cols-2">
+                          <div
+                            v-for="entry in collectSubmissionEntries(selectedSubmission.data)"
+                            :key="entry.key"
+                            class="rounded-lg border border-border/60 bg-background p-3"
+                          >
+                            <div class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {{ formatSubmissionKey(entry.key) }}
+                            </div>
+                            <div class="mt-1 text-sm text-foreground break-words">
+                              {{ formatSubmissionValue(entry.value) }}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card v-else class="border border-dashed border-border/80 bg-muted/30">
+                      <CardContent class="py-12 text-center text-sm text-muted-foreground">
+                        Select a submission to view details.
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </template>
+            </edge-dashboard>
+          </div>
+          <div v-else-if="isEditingPost" class="w-full h-full">
             <edge-cms-posts
               mode="editor"
               :site="props.site"
@@ -1089,7 +1534,7 @@ const pageSettingsUpdated = async (pageData) => {
             </ResizablePanel>
             <ResizablePanel ref="mainPanel">
               <Transition name="fade" mode="out-in">
-                <div v-if="props.page && !state.updating" :key="props.page" class="max-h-[calc(100vh-50px)] overflow-y-auto w-full">
+                <div v-if="props.page && !state.updating" :key="props.page" class="max-h-[calc(100vh-100px)] overflow-y-auto w-full">
                   <NuxtPage class="flex flex-col flex-1 px-0 mx-0 pt-0" />
                 </div>
                 <div v-else class="p-4 text-center flex text-slate-500 h-[calc(100vh-4rem)] justify-center items-center overflow-y-auto">
@@ -1134,318 +1579,18 @@ const pageSettingsUpdated = async (pageData) => {
         >
           <template #main="slotProps">
             <div class="p-6 h-[calc(100vh-140px)] overflow-y-auto">
-              <Tabs class="w-full" default-value="general">
-                <TabsList class="w-full flex flex-wrap gap-2 bg-muted/40 p-1 rounded-lg">
-                  <TabsTrigger value="general" class="text-md uppercase font-medium">
-                    General
-                  </TabsTrigger>
-                  <TabsTrigger value="appearance" class="text-md uppercase font-medium">
-                    Appearance
-                  </TabsTrigger>
-                  <TabsTrigger value="branding" class="text-md uppercase font-medium">
-                    Branding
-                  </TabsTrigger>
-                  <TabsTrigger value="seo" class="text-md uppercase font-medium">
-                    SEO
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="general" class="pt-4 space-y-4">
-                  <edge-shad-input
-                    v-model="slotProps.workingDoc.name"
-                    name="name"
-                    label="Name"
-                    placeholder="Enter name"
-                    class="w-full"
-                  />
-                  <edge-shad-tags
-                    v-model="slotProps.workingDoc.domains"
-                    name="domains"
-                    label="Domains"
-                    placeholder="Add or remove domains"
-                    class="w-full"
-                  />
-                  <edge-shad-input
-                    v-model="slotProps.workingDoc.contactEmail"
-                    name="contactEmail"
-                    label="Contact Email"
-                    placeholder="name@example.com"
-                    class="w-full"
-                  />
-                  <edge-shad-select-tags
-                    v-if="Object.keys(orgUsers).length > 0 && isAdmin"
-                    v-model="slotProps.workingDoc.users" :disabled="!edgeGlobal.isAdminGlobal(edgeFirebase).value"
-                    :items="userOptions" name="users" label="Users"
-                    item-title="label" item-value="value" placeholder="Select users" class="w-full" :multiple="true"
-                  />
-                  <p v-else class="text-sm text-muted-foreground">
-                    No organization users available for this site.
-                  </p>
-                </TabsContent>
-                <TabsContent value="appearance" class="pt-4 space-y-4">
-                  <edge-shad-select-tags
-                    v-if="isAdmin"
-                    :model-value="Array.isArray(slotProps.workingDoc.allowedThemes) ? slotProps.workingDoc.allowedThemes : []"
-                    name="allowedThemes"
-                    label="Allowed Themes"
-                    placeholder="Select allowed themes"
-                    class="w-full"
-                    :items="themeOptions"
-                    item-title="label"
-                    item-value="value"
-                    @update:model-value="(value) => {
-                      const normalized = Array.isArray(value) ? value : []
-                      slotProps.workingDoc.allowedThemes = normalized
-                      if (normalized.length && !normalized.includes(slotProps.workingDoc.theme)) {
-                        slotProps.workingDoc.theme = normalized[0] || ''
-                      }
-                    }"
-                  />
-                  <edge-shad-select
-                    :model-value="slotProps.workingDoc.theme || ''"
-                    name="theme"
-                    label="Theme"
-                    placeholder="Select a theme"
-                    class="w-full"
-                    :items="themeItemsForAllowed(slotProps.workingDoc.allowedThemes, slotProps.workingDoc.theme)"
-                    item-title="label"
-                    item-value="value"
-                    @update:model-value="value => (slotProps.workingDoc.theme = value || '')"
-                  />
-                  <edge-shad-select
-                    :model-value="slotProps.workingDoc.menuPosition || ''"
-                    name="menuPosition"
-                    label="Menu Position"
-                    placeholder="Select menu position"
-                    class="w-full"
-                    :items="menuPositionOptions"
-                    item-title="label"
-                    item-value="value"
-                    @update:model-value="value => (slotProps.workingDoc.menuPosition = value || '')"
-                  />
-                </TabsContent>
-                <TabsContent value="branding" class="pt-4 space-y-4">
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-foreground flex items-center justify-between">
-                      Dark logo
-                      <edge-shad-button
-                        type="button"
-                        variant="link"
-                        class="px-0 h-auto text-sm"
-                        @click="state.logoPickerOpen = !state.logoPickerOpen"
-                      >
-                        {{ state.logoPickerOpen ? 'Hide picker' : 'Select logo' }}
-                      </edge-shad-button>
-                    </label>
-                    <div class="flex items-center gap-4">
-                      <div v-if="slotProps.workingDoc.logo" class="flex items-center gap-3">
-                        <img :src="slotProps.workingDoc.logo" alt="Logo preview" class="h-16 w-auto rounded-md border border-border bg-muted object-contain">
-                        <edge-shad-button
-                          type="button"
-                          variant="ghost"
-                          class="h-8"
-                          @click="slotProps.workingDoc.logo = ''"
-                        >
-                          Remove
-                        </edge-shad-button>
-                      </div>
-                      <span v-else class="text-sm text-muted-foreground italic">No logo selected</span>
-                    </div>
-                    <div v-if="state.logoPickerOpen" class="mt-2 border border-dashed rounded-lg p-2">
-                      <edge-cms-media-manager
-                        :site="props.site"
-                        :select-mode="true"
-                        :default-tags="['Logos']"
-                        @select="(url) => {
-                          slotProps.workingDoc.logo = url
-                          state.logoPickerOpen = false
-                        }"
-                      />
-                    </div>
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-foreground flex items-center justify-between">
-                      Light logo
-                      <edge-shad-button
-                        type="button"
-                        variant="link"
-                        class="px-0 h-auto text-sm"
-                        @click="state.logoLightPickerOpen = !state.logoLightPickerOpen"
-                      >
-                        {{ state.logoLightPickerOpen ? 'Hide picker' : 'Select logo' }}
-                      </edge-shad-button>
-                    </label>
-                    <div class="flex items-center gap-4">
-                      <div v-if="slotProps.workingDoc.logoLight" class="flex items-center gap-3">
-                        <img :src="slotProps.workingDoc.logoLight" alt="Light logo preview" class="h-16 w-auto rounded-md border border-border bg-muted object-contain">
-                        <edge-shad-button
-                          type="button"
-                          variant="ghost"
-                          class="h-8"
-                          @click="slotProps.workingDoc.logoLight = ''"
-                        >
-                          Remove
-                        </edge-shad-button>
-                      </div>
-                      <span v-else class="text-sm text-muted-foreground italic">No light logo selected</span>
-                    </div>
-                    <div v-if="state.logoLightPickerOpen" class="mt-2 border border-dashed rounded-lg p-2">
-                      <edge-cms-media-manager
-                        :site="props.site"
-                        :select-mode="true"
-                        :default-tags="['Logos']"
-                        @select="(url) => {
-                          slotProps.workingDoc.logoLight = url
-                          state.logoLightPickerOpen = false
-                        }"
-                      />
-                    </div>
-                  </div>
-                  <div v-if="isAdmin" class="space-y-4 border border-dashed rounded-lg p-4">
-                    <div class="text-sm font-semibold text-foreground">
-                      Umbrella Brand
-                    </div>
-                    <div class="space-y-2">
-                      <label class="text-sm font-medium text-foreground flex items-center justify-between">
-                        Dark brand logo
-                        <edge-shad-button
-                          type="button"
-                          variant="link"
-                          class="px-0 h-auto text-sm"
-                          @click="state.brandLogoDarkPickerOpen = !state.brandLogoDarkPickerOpen"
-                        >
-                          {{ state.brandLogoDarkPickerOpen ? 'Hide picker' : 'Select logo' }}
-                        </edge-shad-button>
-                      </label>
-                      <div class="flex items-center gap-4">
-                        <div v-if="slotProps.workingDoc.brandLogoDark" class="flex items-center gap-3">
-                          <img :src="slotProps.workingDoc.brandLogoDark" alt="Brand dark logo preview" class="h-16 w-auto rounded-md border border-border bg-muted object-contain">
-                          <edge-shad-button
-                            type="button"
-                            variant="ghost"
-                            class="h-8"
-                            @click="slotProps.workingDoc.brandLogoDark = ''"
-                          >
-                            Remove
-                          </edge-shad-button>
-                        </div>
-                        <span v-else class="text-sm text-muted-foreground italic">No brand dark logo selected</span>
-                      </div>
-                      <div v-if="state.brandLogoDarkPickerOpen" class="mt-2 border border-dashed rounded-lg p-2">
-                        <edge-cms-media-manager
-                          :site="props.site"
-                          :select-mode="true"
-                          :default-tags="['Logos']"
-                          @select="(url) => {
-                            slotProps.workingDoc.brandLogoDark = url
-                            state.brandLogoDarkPickerOpen = false
-                          }"
-                        />
-                      </div>
-                    </div>
-                    <div class="space-y-2">
-                      <label class="text-sm font-medium text-foreground flex items-center justify-between">
-                        Light brand logo
-                        <edge-shad-button
-                          type="button"
-                          variant="link"
-                          class="px-0 h-auto text-sm"
-                          @click="state.brandLogoLightPickerOpen = !state.brandLogoLightPickerOpen"
-                        >
-                          {{ state.brandLogoLightPickerOpen ? 'Hide picker' : 'Select logo' }}
-                        </edge-shad-button>
-                      </label>
-                      <div class="flex items-center gap-4">
-                        <div v-if="slotProps.workingDoc.brandLogoLight" class="flex items-center gap-3">
-                          <img :src="slotProps.workingDoc.brandLogoLight" alt="Brand light logo preview" class="h-16 w-auto rounded-md border border-border bg-muted object-contain">
-                          <edge-shad-button
-                            type="button"
-                            variant="ghost"
-                            class="h-8"
-                            @click="slotProps.workingDoc.brandLogoLight = ''"
-                          >
-                            Remove
-                          </edge-shad-button>
-                        </div>
-                        <span v-else class="text-sm text-muted-foreground italic">No brand light logo selected</span>
-                      </div>
-                      <div v-if="state.brandLogoLightPickerOpen" class="mt-2 border border-dashed rounded-lg p-2">
-                        <edge-cms-media-manager
-                          :site="props.site"
-                          :select-mode="true"
-                          :default-tags="['Logos']"
-                          @select="(url) => {
-                            slotProps.workingDoc.brandLogoLight = url
-                            state.brandLogoLightPickerOpen = false
-                          }"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div class="space-y-2">
-                    <label class="text-sm font-medium text-foreground flex items-center justify-between">
-                      Favicon
-                      <edge-shad-button
-                        type="button"
-                        variant="link"
-                        class="px-0 h-auto text-sm"
-                        @click="state.faviconPickerOpen = !state.faviconPickerOpen"
-                      >
-                        {{ state.faviconPickerOpen ? 'Hide picker' : 'Select favicon' }}
-                      </edge-shad-button>
-                    </label>
-                    <div class="flex items-center gap-4">
-                      <div v-if="slotProps.workingDoc.favicon" class="flex items-center gap-3">
-                        <img :src="slotProps.workingDoc.favicon" alt="Favicon preview" class="h-12 w-12 rounded-md border border-border bg-muted object-contain">
-                        <edge-shad-button
-                          type="button"
-                          variant="ghost"
-                          class="h-8"
-                          @click="slotProps.workingDoc.favicon = ''"
-                        >
-                          Remove
-                        </edge-shad-button>
-                      </div>
-                      <span v-else class="text-sm text-muted-foreground italic">No favicon selected</span>
-                    </div>
-                    <div v-if="state.faviconPickerOpen" class="mt-2 border border-dashed rounded-lg p-2">
-                      <edge-cms-media-manager
-                        :site="props.site"
-                        :select-mode="true"
-                        :default-tags="['Logos']"
-                        @select="(url) => {
-                          slotProps.workingDoc.favicon = url
-                          state.faviconPickerOpen = false
-                        }"
-                      />
-                    </div>
-                  </div>
-                </TabsContent>
-                <TabsContent value="seo" class="pt-4">
-                  <div class="space-y-4">
-                    <p class="text-sm text-muted-foreground">
-                      Default settings if the information is not entered on the page.
-                    </p>
-                    <edge-shad-input
-                      v-model="slotProps.workingDoc.metaTitle"
-                      label="Meta Title"
-                      name="metaTitle"
-                    />
-                    <edge-shad-textarea
-                      v-model="slotProps.workingDoc.metaDescription"
-                      label="Meta Description"
-                      name="metaDescription"
-                    />
-                    <edge-cms-code-editor
-                      v-model="slotProps.workingDoc.structuredData"
-                      title="Structured Data (JSON-LD)"
-                      language="json"
-                      name="structuredData"
-                      height="300px"
-                      class="mb-4 w-full"
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
+              <edge-cms-site-settings-form
+                :settings="slotProps.workingDoc"
+                :theme-options="themeOptions"
+                :user-options="userOptions"
+                :has-users="Object.keys(orgUsers).length > 0"
+                :show-users="true"
+                :show-theme-fields="true"
+                :is-admin="isAdmin"
+                :enable-media-picker="true"
+                :site-id="props.site"
+                :domain-error="domainError"
+              />
             </div>
             <SheetFooter class="pt-2 flex justify-between">
               <edge-shad-button variant="destructive" class="text-white" @click="state.siteSettings = false">
