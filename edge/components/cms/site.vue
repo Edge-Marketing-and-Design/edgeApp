@@ -33,6 +33,22 @@ const normalizeForCompare = (value) => {
 
 const stableSerialize = value => JSON.stringify(normalizeForCompare(value))
 const areEqualNormalized = (a, b) => stableSerialize(a) === stableSerialize(b)
+const isJsonInvalid = (value) => {
+  if (value === null || value === undefined)
+    return false
+  if (typeof value === 'object')
+    return false
+  const text = String(value).trim()
+  if (!text)
+    return false
+  try {
+    JSON.parse(text)
+    return false
+  }
+  catch {
+    return true
+  }
+}
 
 const isTemplateSite = computed(() => props.site === 'templates')
 const router = useRouter()
@@ -339,8 +355,9 @@ const themeOptionsMap = computed(() => {
 const orgUsers = computed(() => edgeFirebase.state?.users || {})
 const userOptions = computed(() => {
   return Object.entries(orgUsers.value || {})
+    .filter(([, user]) => Boolean(user?.userId))
     .map(([id, user]) => ({
-      value: user?.userId || id,
+      value: user?.userId,
       label: user?.meta?.name || user?.userId || id,
     }))
     .sort((a, b) => a.label.localeCompare(b.label))
@@ -859,6 +876,9 @@ const isPublishedPageDiff = (pageId) => {
         metaTitle: publishedPage.metaTitle,
         metaDescription: publishedPage.metaDescription,
         structuredData: publishedPage.structuredData,
+        postMetaTitle: publishedPage.postMetaTitle,
+        postMetaDescription: publishedPage.postMetaDescription,
+        postStructuredData: publishedPage.postStructuredData,
       },
       {
         content: draftPage.content,
@@ -868,6 +888,9 @@ const isPublishedPageDiff = (pageId) => {
         metaTitle: draftPage.metaTitle,
         metaDescription: draftPage.metaDescription,
         structuredData: draftPage.structuredData,
+        postMetaTitle: draftPage.postMetaTitle,
+        postMetaDescription: draftPage.postMetaDescription,
+        postStructuredData: draftPage.postStructuredData,
       },
     )
   }
@@ -1069,6 +1092,9 @@ const isAnyPagesDiff = computed(() => {
         metaTitle: pageData.metaTitle,
         metaDescription: pageData.metaDescription,
         structuredData: pageData.structuredData,
+        postMetaTitle: pageData.postMetaTitle,
+        postMetaDescription: pageData.postMetaDescription,
+        postStructuredData: pageData.postStructuredData,
       },
       {
         content: publishedPage.content,
@@ -1078,6 +1104,9 @@ const isAnyPagesDiff = computed(() => {
         metaTitle: publishedPage.metaTitle,
         metaDescription: publishedPage.metaDescription,
         structuredData: publishedPage.structuredData,
+        postMetaTitle: publishedPage.postMetaTitle,
+        postMetaDescription: publishedPage.postMetaDescription,
+        postStructuredData: publishedPage.postStructuredData,
       },
     )) {
       return true
@@ -1596,7 +1625,7 @@ const pageSettingsUpdated = async (pageData) => {
               <edge-shad-button variant="destructive" class="text-white" @click="state.siteSettings = false">
                 Cancel
               </edge-shad-button>
-              <edge-shad-button :disabled="slotProps.submitting" type="submit" class=" bg-slate-800 hover:bg-slate-400 w-full">
+              <edge-shad-button :disabled="slotProps.submitting || isJsonInvalid(slotProps.workingDoc?.structuredData)" type="submit" class=" bg-slate-800 hover:bg-slate-400 w-full">
                 <Loader2 v-if="slotProps.submitting" class=" h-4 w-4 animate-spin" />
                 Update
               </edge-shad-button>
