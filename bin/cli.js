@@ -63,8 +63,9 @@ const cleanGitignore = (repoName) => {
 
 const repoName = process.argv[2]
 
-const gitCheckoutCommand = `git clone --depth 1 https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
-const removeGitDirCommand = `rm -rf ${repoName}/.git`
+const gitCheckoutCommand = `git clone https://github.com/Edge-Marketing-and-Design/edgeApp.git ${repoName}`
+const removeOriginRemoteCommand = `cd ${repoName} && git remote remove origin`
+const addEdgeComponentsRemoteCommand = `cd ${repoName} && git remote add edge-vue-components https://github.com/Edge-Marketing-and-Design/edge-vue-components.git`
 const installDependenciesCommand = `cd ${repoName} && pnpm store prune && pnpm install --force --ignore-scripts=false`
 const installFunctionDependenciesCommand = `cd ${repoName}/functions && npm install`
 // const cloneFirebaseFrameworkCommand = `cd ${repoName} && git clone https://github.com/Edge-Marketing-and-Design/edge-vue-components.git edge`
@@ -75,9 +76,15 @@ if (!checkedOut) {
   process.exit(1)
 }
 
-console.log(`Removing .git directory from ${repoName}...`)
-const removedGitDir = runCommand(removeGitDirCommand)
-if (!removedGitDir) {
+console.log(`Detaching template origin remote from ${repoName}...`)
+const removedOriginRemote = runCommand(removeOriginRemoteCommand)
+if (!removedOriginRemote) {
+  process.exit(1)
+}
+
+console.log(`Adding edge-vue-components remote to ${repoName}...`)
+const addedEdgeComponentsRemote = runCommand(addEdgeComponentsRemoteCommand)
+if (!addedEdgeComponentsRemote) {
   process.exit(1)
 }
 
@@ -112,4 +119,5 @@ if (!installedFunctionDeps) {
 // }
 
 console.log(`Successfully created ${repoName}!`)
+console.log(`Add your own git origin with: cd ${repoName} && git remote add origin <your-repo-url>`)
 console.log(`cd into ${repoName} and run 'sh firebase_init.sh' to initialize your firebase project.`)

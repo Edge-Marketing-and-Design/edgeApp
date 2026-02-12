@@ -1,3 +1,46 @@
+# Install gcloud if missing (best-effort by platform)
+ensure_gcloud() {
+  if command -v gcloud >/dev/null 2>&1; then
+    return 0
+  fi
+
+  echo "gcloud CLI not found. Attempting to install Google Cloud SDK..."
+
+  if command -v brew >/dev/null 2>&1; then
+    if ! brew list --cask google-cloud-sdk >/dev/null 2>&1; then
+      brew install --cask google-cloud-sdk || {
+        echo "Failed to install Google Cloud SDK with Homebrew."
+        exit 1
+      }
+    fi
+  elif command -v snap >/dev/null 2>&1; then
+    if [ "$(id -u)" -eq 0 ]; then
+      snap install google-cloud-cli --classic || {
+        echo "Failed to install Google Cloud SDK with Snap."
+        exit 1
+      }
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo snap install google-cloud-cli --classic || {
+        echo "Failed to install Google Cloud SDK with Snap."
+        exit 1
+      }
+    else
+      echo "Snap install requires elevated privileges, but 'sudo' is unavailable."
+      exit 1
+    fi
+  else
+    echo "Unable to auto-install Google Cloud SDK on this system."
+    echo "Please install it manually: https://cloud.google.com/sdk/docs/install"
+    exit 1
+  fi
+
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "gcloud is still not available in PATH after install."
+    echo "Open a new terminal and run this script again."
+    exit 1
+  fi
+}
+
 # Prompt for the Firebase configuration values
 echo "Please enter your Firebase project ID:"
 read project_id
@@ -34,8 +77,26 @@ if [ -z "$project_id" ]; then
 fi
 
 # Check if firebase is installed
-if ! command -v firebase &> /dev/null; then
+if ! command -v firebase >/dev/null 2>&1; then
   echo "Firebase CLI could not be found. Please install it and try again."
+  exit 1
+fi
+
+ensure_gcloud
+
+# Initialize gcloud account/config if needed, then set active project
+active_account="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null)"
+if [ -z "$active_account" ]; then
+  echo "No active gcloud account found. Running gcloud init..."
+  if ! gcloud init; then
+    echo "gcloud init failed."
+    exit 1
+  fi
+fi
+
+echo "Setting gcloud project to '$project_id'..."
+if ! gcloud config set project "$project_id"; then
+  echo "Failed to set gcloud project to '$project_id'."
   exit 1
 fi
 

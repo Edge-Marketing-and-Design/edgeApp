@@ -5,9 +5,10 @@ exports.redirectToBilling = onCall(async (request) => {
   const data = request.data
   const auth = request.auth
 
-  if (data.uid !== auth.uid) {
-    throw new HttpsError('failed-precondition', 'The function must be called by the user who is to be redirected.')
-  }
+  if (!auth?.uid)
+    throw new HttpsError('unauthenticated', 'Authentication required.')
+  if (data?.uid !== auth.uid)
+    throw new HttpsError('permission-denied', 'UID mismatch.')
 
   const userDoc = await db.collection('staged-users').doc(data.uid).get()
   if (!userDoc.exists) {

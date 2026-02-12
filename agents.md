@@ -7,6 +7,7 @@ This project is Nuxt 3 + Vue 3, SPA mode. Follow these rules so new code matches
 - Components and composables from `edge/composables/**` are auto-imported; avoid manual imports unless needed.
 - Utilities: use `cn` from `@/lib/utils` for class merging, `lucide-vue-next` for icons, Tailwind for layout/styling. Keep comments minimal and useful.
 - Components under `edge/components` are globally registered with the `edge-` prefix (e.g., `edge-dashboard`, `edge-editor`, `edge-shad-button`).
+- Check the project's lint tooling (package.json scripts + config files) before coding and follow its rules; avoid using functions before they are defined.
 
 ## Firebase and data access
 - Never import Firebase SDKs directly. All Auth/Firestore/Functions/Storage access goes through the injected `edgeFirebase` plugin (`plugins/firebase.client.ts` from `@edgedev/firebase`).
@@ -78,3 +79,4 @@ Adjust props (search, filters, pagination, save overrides) using the existing co
 ## Firebase Functions guidance
 - Review `functions/config.js`, `functions/edgeFirebase.js`, and `functions/cms.js` to mirror established patterns, but do not edit those files.
 - When adding new cloud functions, create a new JS file under `functions/` and export handlers using the shared imports from `config.js`. Wire it up by requiring it in `functions/index.js` (same pattern as `stripe.js`), instead of modifying restricted files.
+- For every `onCall` function, always enforce both checks up front: `request.auth?.uid` must exist, and `request.data?.uid` must exactly match `request.auth.uid`. Throw `HttpsError('unauthenticated', ...)` when auth is missing and `HttpsError('permission-denied', ...)` when the uid does not match.
