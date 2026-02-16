@@ -1,3 +1,8 @@
+import { createCmsNuxtHooks } from './edge/routes/cms/nuxtHooks'
+
+const cmsRouteHooks = {}
+Object.assign(cmsRouteHooks, createCmsNuxtHooks()) // Comment out this line to disable CMS routes.
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   ssr: false,
@@ -15,6 +20,12 @@ export default defineNuxtConfig({
         { rel: 'shortcut icon', href: '/favicon/favicon.ico' },
         { rel: 'apple-touch-icon', sizes: '180x180', href: '/favicon/apple-touch-icon.png' },
         { rel: 'manifest', href: '/favicon/site.webmanifest' },
+      ],
+      meta: [
+        {
+          'http-equiv': 'Content-Security-Policy',
+          'content': 'font-src \'self\' https://files.edgemarketingdesign.com https://use.typekit.net https://p.typekit.net data:;',
+        },
       ],
     },
   },
@@ -40,9 +51,11 @@ export default defineNuxtConfig({
   },
   components: {
     dirs: [
-      { path: '~/components/formSubtypes', global: true, prefix: 'edge-form-subtypes' },
+      { path: '~/components' },
+
+      // Namespaced wrappers — keep them, but lower priority is fine
       { path: '~/edge/components', global: true, prefix: 'edge' },
-      '~/components',
+      { path: '~/components/formSubtypes', global: true, prefix: 'edge-form-subtypes' },
     ],
   },
   vite: {
@@ -50,11 +63,15 @@ export default defineNuxtConfig({
       'process.env.DEBUG': false,
     },
     server: {
+      watch: {
+        ignored: ['**/.nuxt/**', '**/.output/**', '**/dist/**', '**/node_modules/**'],
+      },
       hmr: {
         port: 3000, // Make sure this port matches your Nuxt server port
         clientPort: 3000, // Ensure this matches your Nuxt server port as well
       },
     },
   },
+  hooks: cmsRouteHooks,
   devtools: { enabled: false },
 })
