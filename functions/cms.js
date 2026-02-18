@@ -32,15 +32,16 @@ const DOMAIN_REGISTRY_COLLECTION = 'domain-registry'
 const SITE_STRUCTURED_DATA_TEMPLATE = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'WebSite',
+  '@id': '{{cms-site}}#website',
   'name': '',
-  'url': '',
+  'url': '{{cms-site}}',
   'description': '',
   'publisher': {
     '@type': 'Organization',
     'name': '',
     'logo': {
       '@type': 'ImageObject',
-      'url': '',
+      'url': '{{cms-logo}}',
     },
   },
   'sameAs': [],
@@ -49,13 +50,12 @@ const SITE_STRUCTURED_DATA_TEMPLATE = JSON.stringify({
 const PAGE_STRUCTURED_DATA_TEMPLATE = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'WebPage',
+  '@id': '{{cms-site}}#webpage',
   'name': '',
-  'url': '',
+  'url': '{{cms-url}}',
   'description': '',
   'isPartOf': {
-    '@type': 'WebSite',
-    'name': '',
-    'url': '',
+    '@id': '{{cms-site}}#website',
   },
 }, null, 2)
 
@@ -235,16 +235,76 @@ const normalizeDomain = (value) => {
     }
   }
   normalized = normalized.split('/')[0] || ''
+  if (normalized.startsWith('[')) {
+    const closingIndex = normalized.indexOf(']')
+    if (closingIndex !== -1)
+      normalized = normalized.slice(0, closingIndex + 1)
+  }
   if (normalized.includes(':') && !normalized.startsWith('[')) {
     normalized = normalized.split(':')[0] || ''
   }
   return normalized.replace(/\.+$/g, '')
 }
 
+const stripIpv6Brackets = (value) => {
+  const text = String(value || '').trim()
+  if (text.startsWith('[') && text.endsWith(']'))
+    return text.slice(1, -1)
+  return text
+}
+
+const isIpv4Address = (value) => {
+  const parts = String(value || '').split('.')
+  if (parts.length !== 4)
+    return false
+  return parts.every((part) => {
+    if (!/^\d{1,3}$/.test(part))
+      return false
+    const num = Number(part)
+    return num >= 0 && num <= 255
+  })
+}
+
+const isIpv6Address = (value) => {
+  const normalized = String(value || '').toLowerCase()
+  if (!normalized.includes(':'))
+    return false
+  return /^[0-9a-f:]+$/.test(normalized)
+}
+
+const isIpAddress = (value) => {
+  if (!value)
+    return false
+  const normalized = stripIpv6Brackets(value)
+  return isIpv4Address(normalized) || isIpv6Address(normalized)
+}
+
+const getCloudflareApexDomain = (domain) => {
+  if (!domain)
+    return ''
+  if (domain.startsWith('www.'))
+    return domain.slice(4)
+  return domain
+}
+
+const shouldDisplayDomainDnsRecords = (domain) => {
+  const normalizedDomain = normalizeDomain(domain)
+  const apexDomain = getCloudflareApexDomain(normalizedDomain)
+  if (!apexDomain)
+    return false
+  if (apexDomain === 'localhost' || apexDomain.endsWith('.localhost'))
+    return false
+  if (isIpAddress(apexDomain))
+    return false
+  if (apexDomain.endsWith('.dev'))
+    return false
+  return true
+}
+
 const shouldSyncCloudflareDomain = (domain) => {
   if (!domain)
     return false
-  if (domain.includes('localhost'))
+  if (!shouldDisplayDomainDnsRecords(domain))
     return false
   if (CLOUDFLARE_PAGES_PROJECT) {
     const pagesDomain = `${CLOUDFLARE_PAGES_PROJECT}.pages.dev`
@@ -260,6 +320,44 @@ const getCloudflarePagesDomain = (domain) => {
   if (domain.startsWith('www.'))
     return domain
   return `www.${domain}`
+}
+
+const getCloudflarePagesTarget = () => {
+  if (!CLOUDFLARE_PAGES_PROJECT)
+    return ''
+  return `${CLOUDFLARE_PAGES_PROJECT}.pages.dev`
+}
+
+const buildDomainDnsPayload = (domain, pagesTarget = '') => {
+  const normalizedDomain = normalizeDomain(domain)
+  const apexDomain = getCloudflareApexDomain(normalizedDomain)
+  const wwwDomain = getCloudflarePagesDomain(apexDomain)
+  const target = pagesTarget || getCloudflarePagesTarget()
+  const dnsEligible = shouldDisplayDomainDnsRecords(apexDomain)
+
+  return {
+    domain: normalizedDomain,
+    apexDomain,
+    wwwDomain,
+    dnsEligible,
+    dnsRecords: {
+      target,
+      www: {
+        type: 'CNAME',
+        name: 'www',
+        host: wwwDomain,
+        value: target,
+        enabled: dnsEligible && !!target,
+      },
+      apex: {
+        type: 'CNAME',
+        name: '@',
+        host: apexDomain,
+        value: target,
+        enabled: dnsEligible && !!target,
+      },
+    },
+  }
 }
 
 const isCloudflareDomainAlreadyExistsError = (status, errors = [], message = '') => {
@@ -1114,8 +1212,28 @@ exports.onPageUpdated = onDocumentWritten({ document: 'organizations/{orgId}/sit
   const orgId = event.params.orgId
   const siteId = event.params.siteId
   const pageId = event.params.pageId
-  const content = change.after.exists ? change.after.data().content : []
-  const postContent = change.after.exists ? change.after.data().postContent : []
+  const siteRef = db.collection('organizations').doc(orgId).collection('sites').doc(siteId)
+  const pageData = change.after.exists ? (change.after.data() || {}) : {}
+
+  if (change.after.exists) {
+    const lastModified = pageData.last_updated
+      ?? pageData.doc_updated_at
+      ?? pageData.updatedAt
+      ?? pageData.doc_created_at
+      ?? (change.after.updateTime ? change.after.updateTime.toMillis() : Date.now())
+
+    await siteRef.set({
+      pageLastModified: {
+        [pageId]: lastModified,
+      },
+    }, { merge: true })
+  }
+
+  if (!change.after.exists)
+    return
+
+  const content = Array.isArray(pageData.content) ? pageData.content : []
+  const postContent = Array.isArray(pageData.postContent) ? pageData.postContent : []
 
   const syncedBlocks = collectSyncedBlocks(content, postContent)
 
@@ -1156,6 +1274,15 @@ exports.onPageDeleted = onDocumentDeleted({ document: 'organizations/{orgId}/sit
   const pageId = event.params.pageId
   const publishedRef = db.collection('organizations').doc(orgId).collection('sites').doc(siteId).collection('published').doc(pageId)
   await publishedRef.delete()
+  const siteRef = db.collection('organizations').doc(orgId).collection('sites').doc(siteId)
+  try {
+    await siteRef.update({
+      [`pageLastModified.${pageId}`]: Firestore.FieldValue.delete(),
+    })
+  }
+  catch (error) {
+    logger.warn('Failed to remove pageLastModified for deleted page', { orgId, siteId, pageId, error: error?.message })
+  }
 })
 
 exports.onSiteDeleted = onDocumentDeleted({ document: 'organizations/{orgId}/sites/{siteId}', timeoutSeconds: 180 }, async (event) => {
@@ -1380,6 +1507,7 @@ const callOpenAiForPageSeo = async ({
     'Meta title: concise, <= 60 characters.',
     'Meta description: <= 160 characters, sentence case.',
     'Structured data must match the provided template shape.',
+    'Preserve CMS tokens like {{cms-site}}, {{cms-url}}, and {{cms-logo}} exactly as-is.',
   ].join(' ')
 
   const user = [
@@ -1622,6 +1750,7 @@ const callOpenAiForSiteBootstrap = async ({ siteData, agentData, instructions, f
     'For option fields: return one of the allowed option values (not the label).',
     'If you truly cannot infer a value, return an empty string for that key.',
     'For structuredData fields: return a JSON object matching the provided template shape.',
+    'Preserve CMS tokens like {{cms-site}}, {{cms-url}}, and {{cms-logo}} exactly as-is.',
     'All content, including meta titles/descriptions and structured data, should be optimized for maximum SEO performance.',
   ].join(' ')
 
@@ -1808,12 +1937,18 @@ const buildBlockAiPrompt = ({
   ].join('\n')
 }
 
+const assertCallableUser = (request) => {
+  if (!request?.auth?.uid)
+    throw new HttpsError('unauthenticated', 'Authentication required.')
+  if (request?.data?.uid !== request.auth.uid)
+    throw new HttpsError('permission-denied', 'UID mismatch.')
+}
+
 exports.updateSeoFromAi = onCall({ timeoutSeconds: 180 }, async (request) => {
+  assertCallableUser(request)
   const data = request.data || {}
   const auth = request.auth
-  const { orgId, siteId, pageId, uid } = data
-  if (!auth?.uid || auth.uid !== uid)
-    throw new HttpsError('permission-denied', 'Unauthorized')
+  const { orgId, siteId, pageId } = data
   if (!orgId || !siteId || !pageId)
     throw new HttpsError('invalid-argument', 'Missing orgId, siteId, or pageId')
   const allowed = await permissionCheck(auth.uid, 'write', `organizations/${orgId}/sites/${siteId}/pages`)
@@ -1879,25 +2014,72 @@ exports.updateSeoFromAi = onCall({ timeoutSeconds: 180 }, async (request) => {
 })
 
 exports.getCloudflarePagesProject = onCall(async (request) => {
-  if (!request?.auth) {
-    throw new HttpsError('unauthenticated', 'Authentication required.')
-  }
+  assertCallableUser(request)
+  const data = request.data || {}
+  const orgId = String(data.orgId || '').trim()
+  const siteId = String(data.siteId || '').trim()
+  const rawDomains = Array.isArray(data.domains) ? data.domains : []
+  const normalizedDomains = Array.from(new Set(rawDomains.map(normalizeDomain).filter(Boolean)))
+  const pagesTarget = getCloudflarePagesTarget()
 
-  if (!CLOUDFLARE_PAGES_PROJECT) {
+  if (!CLOUDFLARE_PAGES_PROJECT)
     logger.warn('CLOUDFLARE_PAGES_PROJECT is not set.')
-    return { project: '' }
+
+  const domainRegistry = {}
+  if (orgId && siteId && normalizedDomains.length) {
+    const allowed = await permissionCheck(request.auth.uid, 'read', `organizations/${orgId}/sites`)
+    if (!allowed)
+      throw new HttpsError('permission-denied', 'Not allowed to read site settings')
+
+    await Promise.all(normalizedDomains.map(async (domain) => {
+      const registryRef = db.collection(DOMAIN_REGISTRY_COLLECTION).doc(domain)
+      const registrySnap = await registryRef.get()
+      const fallback = buildDomainDnsPayload(domain, pagesTarget)
+      if (!registrySnap.exists) {
+        domainRegistry[domain] = {
+          ...fallback,
+          apexAttempted: false,
+          apexAdded: false,
+          apexError: '',
+          dnsGuidance: fallback.dnsEligible
+            ? 'Add the www CNAME. Apex is unavailable; forward apex to www.'
+            : 'DNS records are not shown for localhost, IP addresses, or .dev domains.',
+        }
+        return
+      }
+
+      const value = registrySnap.data() || {}
+      domainRegistry[domain] = {
+        ...fallback,
+        ...value,
+        dnsRecords: {
+          ...fallback.dnsRecords,
+          ...(value.dnsRecords || {}),
+          www: {
+            ...fallback.dnsRecords.www,
+            ...(value?.dnsRecords?.www || {}),
+          },
+          apex: {
+            ...fallback.dnsRecords.apex,
+            ...(value?.dnsRecords?.apex || {}),
+          },
+        },
+      }
+    }))
   }
 
-  return { project: CLOUDFLARE_PAGES_PROJECT }
+  return {
+    project: CLOUDFLARE_PAGES_PROJECT || '',
+    pagesDomain: pagesTarget,
+    domainRegistry,
+  }
 })
 
 exports.generateBlockFields = onCall({ timeoutSeconds: 180 }, async (request) => {
+  assertCallableUser(request)
   const data = request.data || {}
   const auth = request.auth
-  const { orgId, uid, blockId, blockName, content, fields, currentValues, meta, instructions } = data
-
-  if (!auth?.uid || auth.uid !== uid)
-    throw new HttpsError('permission-denied', 'Unauthorized')
+  const { orgId, blockId, blockName, content, fields, currentValues, meta, instructions } = data
   if (!orgId || !blockId)
     throw new HttpsError('invalid-argument', 'Missing orgId or blockId')
   if (!Array.isArray(fields) || fields.length === 0)
@@ -2038,7 +2220,6 @@ exports.ensurePublishedSiteDomains = onDocumentWritten(
     const siteRef = change.after.ref
     const siteData = change.after.data() || {}
     const beforeData = change.before?.data?.() || {}
-    const domainErrorChanged = beforeData?.domainError !== siteData?.domainError
     const rawDomains = Array.isArray(siteData.domains) ? siteData.domains : []
     const normalizedDomains = Array.from(new Set(rawDomains.map(normalizeDomain).filter(Boolean)))
     const beforeRawDomains = Array.isArray(beforeData.domains) ? beforeData.domains : []
@@ -2108,41 +2289,143 @@ exports.ensurePublishedSiteDomains = onDocumentWritten(
       filteredDomains = normalizedDomains.filter(domain => !conflictSet.has(domain))
     }
 
-    const syncDomains = Array.from(new Set(
-      filteredDomains
-        .map(domain => getCloudflarePagesDomain(domain))
-        .filter(domain => shouldSyncCloudflareDomain(domain)),
-    ))
+    const pagesTarget = getCloudflarePagesTarget()
+    const registryStateByDomain = new Map()
+    const syncPlanMap = new Map()
+    for (const domain of filteredDomains) {
+      const dnsPayload = buildDomainDnsPayload(domain, pagesTarget)
+      registryStateByDomain.set(domain, {
+        ...dnsPayload,
+        wwwAdded: false,
+        wwwError: '',
+        apexAttempted: false,
+        apexAdded: false,
+        apexError: '',
+        dnsGuidance: dnsPayload.dnsEligible
+          ? 'Add the www CNAME record. Apex is unavailable; forward apex to www.'
+          : 'DNS records are not shown for localhost, IP addresses, or .dev domains.',
+      })
+
+      const apexDomain = dnsPayload.apexDomain
+      if (!apexDomain)
+        continue
+      const existingPlan = syncPlanMap.get(apexDomain) || {
+        apexDomain,
+        wwwDomain: dnsPayload.wwwDomain,
+        domains: new Set(),
+      }
+      existingPlan.domains.add(domain)
+      syncPlanMap.set(apexDomain, existingPlan)
+    }
+
+    const syncPlans = Array.from(syncPlanMap.values())
+      .filter(plan => shouldSyncCloudflareDomain(plan.wwwDomain))
+      .map(plan => ({ ...plan, domains: Array.from(plan.domains) }))
+
     const removeDomains = Array.from(new Set(
       removedOwnedDomains
-        .map(domain => getCloudflarePagesDomain(domain))
+        .flatMap((domain) => {
+          const apexDomain = getCloudflareApexDomain(domain)
+          const wwwDomain = getCloudflarePagesDomain(apexDomain)
+          return [wwwDomain, apexDomain]
+        })
         .filter(domain => shouldSyncCloudflareDomain(domain)),
     ))
     if (removeDomains.length) {
       await Promise.all(removeDomains.map(domain => removeCloudflarePagesDomain(domain, { orgId, siteId })))
     }
-    if (!syncDomains.length) {
-      if (!conflictDomains.length && siteData.domainError && !domainErrorChanged) {
-        await siteRef.set({ domainError: Firestore.FieldValue.delete() }, { merge: true })
+
+    const syncResults = await Promise.all(syncPlans.map(async (plan) => {
+      const wwwResult = await addCloudflarePagesDomain(plan.wwwDomain, { orgId, siteId, variant: 'www' })
+      let apexAttempted = false
+      let apexResult = { ok: false, error: '' }
+      if (shouldSyncCloudflareDomain(plan.apexDomain)) {
+        apexAttempted = true
+        apexResult = await addCloudflarePagesDomain(plan.apexDomain, { orgId, siteId, variant: 'apex' })
       }
-      return
+      return {
+        ...plan,
+        apexAttempted,
+        wwwResult,
+        apexResult,
+      }
+    }))
+
+    for (const plan of syncResults) {
+      const wwwAdded = !!plan.wwwResult?.ok
+      const wwwError = wwwAdded ? '' : String(plan.wwwResult?.error || 'Failed to add www domain.')
+      const apexAdded = !!plan.apexResult?.ok
+      const apexError = apexAdded
+        ? ''
+        : (plan.apexAttempted ? String(plan.apexResult?.error || 'Failed to add apex domain.') : '')
+
+      for (const domain of plan.domains) {
+        const current = registryStateByDomain.get(domain) || buildDomainDnsPayload(domain, pagesTarget)
+        const dnsGuidance = !current.dnsEligible
+          ? 'DNS records are not shown for localhost, IP addresses, or .dev domains.'
+          : (apexAdded
+              ? 'Apex and www were added to Cloudflare Pages. Add both DNS records if your provider requires manual setup.'
+              : 'Add the www CNAME record. Apex is unavailable; forward apex to www.')
+        const nextDnsRecords = {
+          ...(current.dnsRecords || {}),
+          apex: {
+            ...(current?.dnsRecords?.apex || {}),
+            enabled: !!current.dnsEligible && !!current?.dnsRecords?.apex?.value && apexAdded,
+          },
+          www: {
+            ...(current?.dnsRecords?.www || {}),
+            enabled: !!current.dnsEligible && !!current?.dnsRecords?.www?.value,
+          },
+        }
+
+        registryStateByDomain.set(domain, {
+          ...current,
+          dnsRecords: nextDnsRecords,
+          wwwAdded,
+          wwwError,
+          apexAttempted: !!plan.apexAttempted,
+          apexAdded,
+          apexError,
+          dnsGuidance,
+        })
+      }
     }
 
-    const results = await Promise.all(syncDomains.map(domain => addCloudflarePagesDomain(domain, { orgId, siteId })))
-    const failed = results
-      .map((result, index) => ({ result, domain: syncDomains[index] }))
-      .filter(item => !item.result?.ok)
+    if (registryStateByDomain.size) {
+      for (const [domain, value] of registryStateByDomain.entries()) {
+        const registryRef = db.collection(DOMAIN_REGISTRY_COLLECTION).doc(domain)
+        const payload = {
+          domain,
+          orgId,
+          siteId,
+          sitePath: siteRef.path,
+          updatedAt: Firestore.FieldValue.serverTimestamp(),
+          apexDomain: value.apexDomain || '',
+          wwwDomain: value.wwwDomain || '',
+          dnsEligible: !!value.dnsEligible,
+          apexAttempted: !!value.apexAttempted,
+          apexAdded: !!value.apexAdded,
+          wwwAdded: !!value.wwwAdded,
+          dnsRecords: value.dnsRecords || {},
+          dnsGuidance: value.dnsGuidance || '',
+        }
+        payload.apexError = value.apexError ? value.apexError : Firestore.FieldValue.delete()
+        payload.wwwError = value.wwwError ? value.wwwError : Firestore.FieldValue.delete()
+        await registryRef.set(payload, { merge: true })
+      }
+    }
 
+    const failed = syncResults.filter(item => !item.wwwResult?.ok)
     if (!failed.length) {
-      if (!conflictDomains.length && siteData.domainError && !domainErrorChanged) {
+      if (!conflictDomains.length && siteData.domainError) {
         await siteRef.set({ domainError: Firestore.FieldValue.delete() }, { merge: true })
       }
       return
     }
 
-    const errorDomains = failed.map(item => item.domain)
+    const errorDomains = failed.map(item => item.wwwDomain)
     const errorDetails = failed
-      .map(item => item.result?.error)
+      .map(item => item.wwwResult?.error)
       .filter(Boolean)
       .join('; ')
     const cloudflareMessage = `Cloudflare domain sync failed for "${errorDomains.join(', ')}". ${errorDetails || 'Check function logs.'}`.trim()

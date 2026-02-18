@@ -30,7 +30,10 @@
     "moment-timezone": "^0.5.48",
     "openai": "^4.104.0",
     "stripe": "^13.11.0",
-    "twilio": "^4.23.0"
+    "twilio": "^4.23.0",
+    "@google-cloud/functions-framework": "^3.4.5",
+    "@napi-rs/canvas": "^0.1.0",
+    "cloudconvert": "^2.3.7"
   },
   "devDependencies": {
     "firebase-functions-test": "^0.2.0"
