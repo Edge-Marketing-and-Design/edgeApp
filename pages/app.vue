@@ -260,18 +260,18 @@ edgeGlobal.edgeState.userRoles = [
   },
 ]
 
-edgeGlobal.edgeState.menuItems = [
-  {
-    title: 'Dashboard',
-    to: '/app/dashboard/things',
-    icon: 'LayoutDashboard',
-  },
-  {
-    title: 'Sub Things',
-    to: '/app/dashboard/subthings',
-    icon: 'Package',
-  },
-]
+// edgeGlobal.edgeState.menuItems = [
+//   {
+//     title: 'Dashboard',
+//     to: '/app/dashboard/things',
+//     icon: 'LayoutDashboard',
+//   },
+//   {
+//     title: 'Sub Things',
+//     to: '/app/dashboard/subthings',
+//     icon: 'Package',
+//   },
+// ]
 </script>
 
 <template>
