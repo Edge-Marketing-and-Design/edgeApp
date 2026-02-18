@@ -103,6 +103,7 @@ const schemas = {
         message: 'At least one domain is required',
         path: ['domains', 0],
       }),
+    forwardApex: z.boolean().optional(),
     contactEmail: z.string().optional(),
     contactPhone: z.string().optional(),
     theme: z.string({
@@ -783,6 +784,7 @@ const isSiteDiff = computed(() => {
       brandLogoLight: publishedSite.brandLogoLight,
       favicon: publishedSite.favicon,
       menuPosition: publishedSite.menuPosition,
+      forwardApex: publishedSite.forwardApex,
       contactEmail: publishedSite.contactEmail,
       contactPhone: publishedSite.contactPhone,
       metaTitle: publishedSite.metaTitle,
@@ -810,6 +812,7 @@ const isSiteDiff = computed(() => {
       brandLogoLight: siteData.value.brandLogoLight,
       favicon: siteData.value.favicon,
       menuPosition: siteData.value.menuPosition,
+      forwardApex: siteData.value.forwardApex,
       contactEmail: siteData.value.contactEmail,
       contactPhone: siteData.value.contactPhone,
       metaTitle: siteData.value.metaTitle,
@@ -851,6 +854,7 @@ const discardSiteSettings = async () => {
       brandLogoLight: publishedSite.brandLogoLight || '',
       favicon: publishedSite.favicon || '',
       menuPosition: publishedSite.menuPosition || '',
+      forwardApex: publishedSite.forwardApex === false ? false : true,
       contactEmail: publishedSite.contactEmail || '',
       contactPhone: publishedSite.contactPhone || '',
       metaTitle: publishedSite.metaTitle || '',
@@ -1699,6 +1703,7 @@ const pageSettingsUpdated = async (pageData) => {
                 :enable-media-picker="true"
                 :site-id="props.site"
                 :domain-error="domainError"
+                :settings-open="state.siteSettings"
               />
             </div>
             <SheetFooter class="pt-2 flex justify-between">
