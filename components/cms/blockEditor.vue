@@ -1,5 +1,5 @@
 <script setup>
-import { HelpCircle, Maximize2, Monitor, Smartphone, Tablet } from 'lucide-vue-next'
+import { Download, HelpCircle, Maximize2, Monitor, Smartphone, Tablet } from 'lucide-vue-next'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
 const props = defineProps({
@@ -12,20 +12,12 @@ const props = defineProps({
 const emit = defineEmits(['head'])
 
 const edgeFirebase = inject('edgeFirebase')
-
-const route = useRoute()
+const { blocks: blockNewDocSchema } = useCmsNewDocs()
 
 const state = reactive({
   filter: '',
   newDocs: {
-    blocks: {
-      name: { value: '' },
-      content: { value: '' },
-      tags: { value: [] },
-      themes: { value: [] },
-      synced: { value: false },
-      version: 1,
-    },
+    blocks: blockNewDocSchema.value,
   },
   mounted: false,
   workingDoc: {},
@@ -40,6 +32,7 @@ const state = reactive({
   seedingInitialBlocks: false,
   previewViewport: 'full',
   previewBlock: null,
+  themeDefaultAppliedForBlockId: '',
 })
 
 const blockSchema = toTypedSchema(z.object({
@@ -92,7 +85,7 @@ const PLACEHOLDERS = {
     'Consectetur adipiscing elit.',
     'Sed do eiusmod tempor incididunt.',
   ],
-  image: '/images/filler.png',
+  image: 'https://imagedelivery.net/h7EjKG0X9kOxmLp41mxOng/f1f7f610-dfa9-4011-08a3-7a98d95e7500/thumbnail',
 }
 
 const contentEditorRef = ref(null)
@@ -459,15 +452,26 @@ const buildPreviewBlock = (workingDoc, parsed) => {
 }
 
 const theme = computed(() => {
-  const theme = edgeGlobal.edgeState.blockEditorTheme || ''
-  let themeContents = null
-  if (theme) {
-    themeContents = edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/themes`]?.[theme]?.theme || null
-  }
-  if (themeContents) {
+  const selectedThemeId = String(edgeGlobal.edgeState.blockEditorTheme || '').trim()
+  if (!selectedThemeId)
+    return null
+  const themeContents = edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/themes`]?.[selectedThemeId]?.theme || null
+  if (!themeContents)
+    return null
+  if (typeof themeContents === 'object')
+    return themeContents
+  try {
     return JSON.parse(themeContents)
   }
-  return null
+  catch {
+    return null
+  }
+})
+
+const previewThemeRenderKey = computed(() => {
+  const themeId = String(edgeGlobal.edgeState.blockEditorTheme || 'no-theme')
+  const siteId = String(edgeGlobal.edgeState.blockEditorSite || 'no-site')
+  return `${themeId}:${siteId}:${state.previewViewport}`
 })
 
 const headObject = computed(() => {
@@ -510,11 +514,51 @@ const themes = computed(() => {
   return Object.values(edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/themes`] || {})
 })
 
-watch (themes, async (newThemes) => {
-  state.loading = true
-  if (!edgeGlobal.edgeState.blockEditorTheme && newThemes.length > 0) {
-    edgeGlobal.edgeState.blockEditorTheme = newThemes[0].docId
+const availableThemeIds = computed(() => {
+  return themes.value
+    .map(themeDoc => String(themeDoc?.docId || '').trim())
+    .filter(Boolean)
+})
+
+const currentBlockAllowedThemeIds = computed(() => {
+  const currentBlockDoc = edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/blocks`]?.[props.blockId]
+  if (!Array.isArray(currentBlockDoc?.themes))
+    return []
+  return currentBlockDoc.themes.map(themeId => String(themeId || '').trim()).filter(Boolean)
+})
+
+const preferredThemeDefaultForBlock = computed(() => {
+  const firstAllowedAvailable = currentBlockAllowedThemeIds.value.find(themeId => availableThemeIds.value.includes(themeId))
+  if (firstAllowedAvailable)
+    return firstAllowedAvailable
+  return availableThemeIds.value[0] || ''
+})
+
+const applyThemeDefaultForBlock = () => {
+  const blockId = String(props.blockId || '').trim()
+  if (!blockId)
+    return
+  if (state.themeDefaultAppliedForBlockId === blockId)
+    return
+
+  const preferredThemeId = preferredThemeDefaultForBlock.value
+  if (!preferredThemeId) {
+    if (!availableThemeIds.value.length)
+      edgeGlobal.edgeState.blockEditorTheme = ''
+    return
   }
+
+  edgeGlobal.edgeState.blockEditorTheme = preferredThemeId
+  state.themeDefaultAppliedForBlockId = blockId
+}
+
+watch(() => props.blockId, () => {
+  state.themeDefaultAppliedForBlockId = ''
+}, { immediate: true })
+
+watch([availableThemeIds, currentBlockAllowedThemeIds, () => props.blockId], async () => {
+  state.loading = true
+  applyThemeDefaultForBlock()
   await nextTick()
   state.loading = false
 }, { immediate: true, deep: true })
@@ -567,6 +611,59 @@ const getTagsFromBlocks = computed(() => {
   // Always prepend it
   return [{ name: 'Quick Picks', title: 'Quick Picks' }, ...filtered]
 })
+
+const downloadJsonFile = (payload, filename) => {
+  if (typeof window === 'undefined')
+    return
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
+const isPlainObject = value => !!value && typeof value === 'object' && !Array.isArray(value)
+
+const cloneSchemaValue = (value) => {
+  if (isPlainObject(value) || Array.isArray(value))
+    return edgeGlobal.dupObject(value)
+  return value
+}
+
+const getDocDefaultsFromSchema = (schema = {}) => {
+  const defaults = {}
+  for (const [key, schemaEntry] of Object.entries(schema || {})) {
+    const hasValueProp = isPlainObject(schemaEntry) && Object.prototype.hasOwnProperty.call(schemaEntry, 'value')
+    const baseValue = hasValueProp ? schemaEntry.value : schemaEntry
+    defaults[key] = cloneSchemaValue(baseValue)
+  }
+  return defaults
+}
+
+const getBlockDocDefaults = () => getDocDefaultsFromSchema(blockNewDocSchema.value || {})
+
+const notifySuccess = (message) => {
+  edgeFirebase?.toast?.success?.(message)
+}
+
+const notifyError = (message) => {
+  edgeFirebase?.toast?.error?.(message)
+}
+
+const exportCurrentBlock = () => {
+  const doc = blocks.value?.[props.blockId]
+  if (!doc || !doc.docId) {
+    notifyError('Save this block before exporting.')
+    return
+  }
+  const exportPayload = { ...getBlockDocDefaults(), ...doc }
+  downloadJsonFile(exportPayload, `block-${doc.docId}.json`)
+  notifySuccess(`Exported block "${doc.docId}".`)
+}
 </script>
 
 <template>
@@ -578,7 +675,9 @@ const getTagsFromBlocks = computed(() => {
       :doc-id="props.blockId"
       :schema="blockSchema"
       :new-doc-schema="state.newDocs.blocks"
-      class="w-full mx-auto flex-1 bg-transparent flex flex-col border-none shadow-none"
+      header-class="py-2 bg-secondary text-foreground rounded-none sticky top-0 border"
+      class="w-full mx-auto flex-1 bg-transparent flex flex-col border-none shadow-none pt-0 px-0"
+      card-content-class="px-0"
       :show-footer="false"
       :no-close-after-save="true"
       :working-doc-overrides="state.workingDoc"
@@ -589,28 +688,40 @@ const getTagsFromBlocks = computed(() => {
         {{ slotProps.title }}
       </template>
       <template #header-center>
-        <div class="w-full flex gap-1 px-4">
-          <div class="w-1/2">
+        <div class="w-full flex gap-2 px-4 items-center">
+          <div class="flex-1">
             <edge-shad-select
               v-if="!state.loading"
               v-model="edgeGlobal.edgeState.blockEditorTheme"
-              label="Theme Viewer Select"
               name="theme"
               :items="themes.map(t => ({ title: t.name, name: t.docId }))"
               placeholder="Theme Viewer Select"
               class="w-full"
             />
           </div>
-          <div class="w-1/2">
+          <div class="flex-1">
             <edge-shad-select
               v-if="!state.loading"
               v-model="edgeGlobal.edgeState.blockEditorSite"
-              label="Site"
               name="site"
               :items="sites.map(s => ({ title: s.name, name: s.docId }))"
               placeholder="Select Site"
               class="w-full"
             />
+          </div>
+          <div class="flex items-center gap-2">
+            <edge-shad-button
+              type="button"
+              size="icon"
+              variant="outline"
+              class="h-9 w-9"
+              :disabled="props.blockId === 'new' || !blocks?.[props.blockId]"
+              title="Export Block"
+              aria-label="Export Block"
+              @click="exportCurrentBlock"
+            >
+              <Download class="h-4 w-4" />
+            </edge-shad-button>
           </div>
         </div>
       </template>
@@ -659,55 +770,53 @@ const getTagsFromBlocks = computed(() => {
           </div>
           <div class="flex gap-4">
             <div class="w-1/2">
-              <div class="flex gap-2">
-                <div class="w-2/12 mb-3 rounded-md border border-slate-200 bg-white/80 p-3 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900/60">
-                  <div class="flex flex-col gap-2">
-                    <edge-shad-button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      class="w-full h-8 px-2 text-[11px] uppercase tracking-wide gap-2"
-                      @click="state.helpOpen = true"
-                    >
-                      <HelpCircle class="w-4 h-4" />
-                      Block Help
-                    </edge-shad-button>
-                    <div class="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300 whitespace-nowrap">
-                      Dynamic Content
-                    </div>
-                  </div>
-                  <div class="mt-2 flex flex-wrap gap-2">
-                    <edge-tooltip
-                      v-for="snippet in BLOCK_CONTENT_SNIPPETS"
-                      :key="snippet.label"
-                    >
+              <edge-cms-code-editor
+                ref="contentEditorRef"
+                v-model="slotProps.workingDoc.content"
+                title="Block Content"
+                language="html"
+                name="content"
+                :enable-formatting="false"
+                height="calc(100vh - 300px)"
+                class="mb-4 flex-1"
+                @line-click="payload => handleEditorLineClick(payload, slotProps.workingDoc)"
+              >
+                <template #end-actions>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger as-child>
                       <edge-shad-button
+                        type="button"
                         size="sm"
                         variant="outline"
-                        class="text-xs w-full"
+                        class="h-8 px-2 text-[11px] uppercase tracking-wide"
+                      >
+                        Dynamic Content
+                      </edge-shad-button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" class="w-72">
+                      <DropdownMenuItem
+                        v-for="snippet in BLOCK_CONTENT_SNIPPETS"
+                        :key="snippet.label"
+                        class="cursor-pointer flex-col items-start gap-0.5"
                         @click="insertBlockContentSnippet(snippet.snippet)"
                       >
-                        {{ snippet.label }}
-                      </edge-shad-button>
-                      <template #content>
-                        <pre class="max-w-[320px] whitespace-pre-wrap break-words text-left text-xs font-mono leading-tight">{{ snippet.snippet }}</pre>
-                      </template>
-                    </edge-tooltip>
-                  </div>
-                </div>
-                <div class="w-10/12">
-                  <edge-cms-code-editor
-                    ref="contentEditorRef"
-                    v-model="slotProps.workingDoc.content"
-                    title="Block Content"
-                    language="html"
-                    name="content"
-                    height="calc(100vh - 300px)"
-                    class="mb-4 flex-1"
-                    @line-click="payload => handleEditorLineClick(payload, slotProps.workingDoc)"
-                  />
-                </div>
-              </div>
+                        <span class="text-sm font-medium">{{ snippet.label }}</span>
+                        <span class="text-xs text-muted-foreground whitespace-normal">{{ snippet.description }}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <edge-shad-button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    class="h-8 px-2 text-[11px] uppercase tracking-wide gap-2"
+                    @click="state.helpOpen = true"
+                  >
+                    <HelpCircle class="w-4 h-4" />
+                    Block Help
+                  </edge-shad-button>
+                </template>
+              </edge-cms-code-editor>
             </div>
             <div class="w-1/2 space-y-2">
               <div class="flex items-center justify-between">
@@ -733,6 +842,7 @@ const getTagsFromBlocks = computed(() => {
               >
                 <edge-cms-block
                   v-if="state.previewBlock"
+                  :key="previewThemeRenderKey"
                   v-model="state.previewBlock"
                   :site-id="edgeGlobal.edgeState.blockEditorSite"
                   :theme="theme"
