@@ -26,25 +26,118 @@ const props = defineProps({
     type: String,
     default: 'auto',
   },
+  allowDelete: {
+    type: Boolean,
+    default: true,
+  },
+  containFixed: {
+    type: Boolean,
+    default: false,
+  },
 })
 const emit = defineEmits(['update:modelValue', 'delete'])
 const edgeFirebase = inject('edgeFirebase')
+
+function normalizeConfigLiteral(str) {
+  return str
+    .replace(/(\{|,)\s*([A-Za-z_][\w-]*)\s*:/g, '$1"$2":')
+    .replace(/'/g, '"')
+}
+
+function safeParseTagConfig(raw) {
+  try {
+    return JSON.parse(normalizeConfigLiteral(raw))
+  }
+  catch {
+    return null
+  }
+}
+
+function findMatchingBrace(str, startIdx) {
+  let depth = 0
+  let inString = false
+  let quote = null
+  let escape = false
+
+  for (let i = startIdx; i < str.length; i++) {
+    const ch = str[i]
+    if (inString) {
+      if (escape) {
+        escape = false
+        continue
+      }
+      if (ch === '\\') {
+        escape = true
+        continue
+      }
+      if (ch === quote) {
+        inString = false
+        quote = null
+      }
+      continue
+    }
+
+    if (ch === '"' || ch === '\'') {
+      inString = true
+      quote = ch
+      continue
+    }
+    if (ch === '{')
+      depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0)
+        return i
+    }
+  }
+
+  return -1
+}
+
 function extractFieldsInOrder(template) {
   if (!template || typeof template !== 'string')
     return []
+
   const fields = []
   const seen = new Set()
-  const TAG_RE = /\{\{\{#[^\s]+\s+(\{[\s\S]*?\})\}\}\}/g
-  let m = TAG_RE.exec(template)
-  while (m) {
-    const cfg = m[1]
-    const fm = cfg.match(/"field"\s*:\s*"([^"]+)"/)
-    if (fm && !seen.has(fm[1])) {
-      fields.push(fm[1])
-      seen.add(fm[1])
+
+  const TAG_START_RE = /\{\{\{\#([A-Za-z0-9_-]+)\s*\{/g
+  TAG_START_RE.lastIndex = 0
+
+  for (;;) {
+    const m = TAG_START_RE.exec(template)
+    if (!m)
+      break
+
+    const configStart = TAG_START_RE.lastIndex - 1
+    if (configStart < 0 || template[configStart] !== '{')
+      continue
+
+    const configEnd = findMatchingBrace(template, configStart)
+    if (configEnd === -1)
+      continue
+
+    const rawCfg = template.slice(configStart, configEnd + 1)
+    const parsedCfg = safeParseTagConfig(rawCfg)
+
+    let field = typeof parsedCfg?.field === 'string'
+      ? parsedCfg.field.trim()
+      : ''
+
+    if (!field) {
+      const fm = rawCfg.match(/["']?field["']?\s*:\s*["']([^"']+)["']/)
+      field = fm?.[1]?.trim() || ''
     }
-    m = TAG_RE.exec(template)
+
+    if (field && !seen.has(field)) {
+      fields.push(field)
+      seen.add(field)
+    }
+
+    const closeTriple = template.indexOf('}}}', configEnd)
+    TAG_START_RE.lastIndex = closeTriple !== -1 ? closeTriple + 3 : configEnd + 1
   }
+
   return fields
 }
 
@@ -69,6 +162,70 @@ const state = reactive({
   aiGenerating: false,
   aiError: '',
   validationErrors: [],
+})
+
+const INTERACTIVE_CLICK_SELECTOR = [
+  '[data-cms-interactive]',
+  '.cms-block-interactive',
+  '.cms-nav-toggle',
+  '.cms-nav-overlay',
+  '.cms-nav-panel',
+  '.cms-nav-close',
+  '.cms-nav-link',
+].join(', ')
+
+const hasFixedPositionInContent = computed(() => {
+  const content = String(modelValue.value?.content || '')
+  return /\bfixed\b/.test(content)
+})
+
+const normalizePreviewType = (value) => {
+  return value === 'dark' ? 'dark' : 'light'
+}
+
+const resolvedPreviewType = computed(() => normalizePreviewType(modelValue.value?.previewType))
+const sourceBlockDocId = computed(() => {
+  const direct = String(modelValue.value?.blockId || '').trim()
+  if (direct)
+    return direct
+  return String(props.blockId || '').trim()
+})
+
+const inheritedPreviewType = computed(() => {
+  const explicit = modelValue.value?.previewType
+  if (explicit === 'light' || explicit === 'dark')
+    return explicit
+  const docId = sourceBlockDocId.value
+  if (!docId)
+    return null
+  const blockDoc = edgeFirebase.data?.[`${edgeGlobal.edgeState.organizationDocPath}/blocks`]?.[docId]
+  const inherited = blockDoc?.previewType
+  return (inherited === 'light' || inherited === 'dark') ? inherited : null
+})
+
+const effectivePreviewType = computed(() => {
+  return normalizePreviewType(inheritedPreviewType.value ?? resolvedPreviewType.value)
+})
+
+const shouldContainFixedPreview = computed(() => {
+  return (props.editMode || props.containFixed) && hasFixedPositionInContent.value
+})
+
+const blockWrapperClass = computed(() => ({
+  'overflow-visible': shouldContainFixedPreview.value,
+  'min-h-[88px]': props.editMode && shouldContainFixedPreview.value,
+  'z-30': shouldContainFixedPreview.value,
+  'bg-white text-black': props.editMode && effectivePreviewType.value === 'light',
+  'bg-neutral-950 text-neutral-50': props.editMode && effectivePreviewType.value === 'dark',
+  'cms-nav-edit-static': props.editMode,
+}))
+
+const blockWrapperStyle = computed(() => {
+  if (!shouldContainFixedPreview.value || !props.editMode)
+    return null
+  return {
+    transform: 'translateZ(0)',
+  }
 })
 
 const isLightName = (value) => {
@@ -147,8 +304,11 @@ const resetArrayItems = (field, metaSource = null) => {
   }
 }
 
-const openEditor = async () => {
+const openEditor = async (event) => {
   if (!props.editMode)
+    return
+  const target = event?.target
+  if (target?.closest?.(INTERACTIVE_CLICK_SELECTOR))
     return
   const blockData = edgeFirebase.data[`${edgeGlobal.edgeState.organizationDocPath}/blocks`]?.[modelValue.value.blockId]
   const templateMeta = blockData?.meta || modelValue.value?.meta || {}
@@ -190,6 +350,11 @@ const openEditor = async () => {
   state.validationErrors = []
   state.open = true
   state.afterLoad = true
+}
+
+const isLimitOne = (field) => {
+  const limit = Number(state.meta?.[field]?.limit)
+  return Number.isFinite(limit) && limit === 1
 }
 
 const normalizeValidationNumber = (value) => {
@@ -264,6 +429,31 @@ const orderedMeta = computed(() => {
   return out
 })
 
+const hasEditableArrayControls = (entry) => {
+  if (!entry?.meta)
+    return false
+
+  // Manual arrays are editable through the schema/list UI.
+  if (!entry.meta?.api && !entry.meta?.collection)
+    return true
+
+  const collectionPath = entry.meta?.collection?.path
+  const supportsQueryControls = collectionPath !== 'post'
+  const queryOptions = Array.isArray(entry.meta?.queryOptions) ? entry.meta.queryOptions : []
+  const hasQueryOptions = supportsQueryControls && queryOptions.length > 0
+  const hasLimitControl = supportsQueryControls && !isLimitOne(entry.field)
+
+  return hasQueryOptions || hasLimitControl
+}
+
+const editableMetaEntries = computed(() => {
+  return orderedMeta.value.filter((entry) => {
+    if (entry?.meta?.type === 'array')
+      return hasEditableArrayControls(entry)
+    return true
+  })
+})
+
 const genTitleFromField = (field) => {
   if (field?.title)
     return field.title
@@ -324,7 +514,7 @@ const save = () => {
 }
 
 const aiFieldOptions = computed(() => {
-  return orderedMeta.value
+  return editableMetaEntries.value
     .map(entry => ({
       id: entry.field,
       label: genTitleFromField(entry),
@@ -479,9 +669,10 @@ const getTagsFromPosts = computed(() => {
 <template>
   <div>
     <div
-      :class="{ 'cursor-pointer': props.editMode }"
-      class="relative group "
-      @click="openEditor"
+      :class="[{ 'cursor-pointer': props.editMode }, blockWrapperClass]"
+      :style="blockWrapperStyle"
+      class="relative group"
+      @click="openEditor($event)"
     >
       <!-- Content -->
       <edge-cms-block-api :site-id="props.siteId" :theme="props.theme" :content="modelValue?.content" :values="modelValue?.values" :meta="modelValue?.meta" :viewport-mode="props.viewportMode" @pending="state.loading = $event" />
@@ -499,7 +690,7 @@ const getTagsFromPosts = computed(() => {
       <!-- Hover controls -->
       <div v-if="props.editMode" class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
         <!-- Delete button top right -->
-        <div class="absolute top-2 right-2">
+        <div v-if="props.allowDelete" class="absolute top-2 right-2">
           <edge-shad-button
             variant="destructive"
             size="icon"
@@ -562,7 +753,7 @@ const getTagsFromPosts = computed(() => {
         </SheetHeader>
 
         <edge-shad-form ref="blockFormRef">
-          <div v-if="orderedMeta.length === 0">
+          <div v-if="editableMetaEntries.length === 0">
             <Alert variant="info" class="mt-4 mb-4">
               <AlertTitle>No editable fields found</AlertTitle>
               <AlertDescription class="text-sm">
@@ -571,7 +762,7 @@ const getTagsFromPosts = computed(() => {
             </Alert>
           </div>
           <div :class="modelValue.synced ? 'h-[calc(100vh-160px)]' : 'h-[calc(100vh-130px)]'" class="p-6 space-y-4   overflow-y-auto">
-            <template v-for="entry in orderedMeta" :key="entry.field">
+            <template v-for="entry in editableMetaEntries" :key="entry.field">
               <div v-if="entry.meta.type === 'array'">
                 <div v-if="!entry.meta?.api && !entry.meta?.collection">
                   <div v-if="entry.meta?.schema">
@@ -698,7 +889,12 @@ const getTagsFromPosts = computed(() => {
                       />
                     </div>
                   </template>
-                  <edge-shad-number v-if="entry.meta?.collection?.path !== 'post'" v-model="state.meta[entry.field].limit" name="limit" label="Limit" />
+                  <edge-shad-number
+                    v-if="entry.meta?.collection?.path !== 'post' && !isLimitOne(entry.field)"
+                    v-model="state.meta[entry.field].limit"
+                    name="limit"
+                    label="Limit"
+                  />
                 </div>
               </div>
               <div v-else-if="entry.meta?.type === 'image'" class="w-full">
@@ -848,3 +1044,17 @@ const getTagsFromPosts = computed(() => {
     </Sheet>
   </div>
 </template>
+
+<style scoped>
+.cms-nav-edit-static :deep([data-cms-nav-root] .cms-nav-toggle),
+.cms-nav-edit-static :deep([data-cms-nav-root] .cms-nav-close),
+.cms-nav-edit-static :deep([data-cms-nav-root] .cms-nav-link) {
+  pointer-events: none !important;
+}
+
+.cms-nav-edit-static :deep([data-cms-nav-root] .cms-nav-overlay),
+.cms-nav-edit-static :deep([data-cms-nav-root] .cms-nav-panel) {
+  display: none !important;
+  pointer-events: none !important;
+}
+</style>
