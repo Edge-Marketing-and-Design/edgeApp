@@ -81,12 +81,89 @@ warn_edge_subtree_sync() {
   fi
 }
 
+resolve_functions_region() {
+  if [ -n "${FIREBASE_STORE_REGION:-}" ]; then
+    echo "$FIREBASE_STORE_REGION"
+    return
+  fi
+
+  if [ -f "functions/.env.prod" ]; then
+    local env_region
+    env_region="$(rg '^FIREBASE_STORE_REGION=' functions/.env.prod -N | tail -n 1 | sed 's/^FIREBASE_STORE_REGION=//; s/^"//; s/"$//')"
+    if [ -n "$env_region" ]; then
+      echo "$env_region"
+      return
+    fi
+  fi
+
+  echo "us-west1"
+}
+
+ensure_callable_public_access() {
+  if ! command -v gcloud >/dev/null 2>&1; then
+    echo "Deploy aborted: gcloud CLI not found. It is required to enforce callable invoker access." >&2
+    exit 1
+  fi
+
+  local region
+  region="$(resolve_functions_region)"
+
+  local callable_functions
+  callable_functions="$(
+    node - <<'NODE'
+const fs = require('fs')
+const path = require('path')
+
+const root = process.cwd()
+const indexPath = path.join(root, 'functions', 'index.js')
+const indexSource = fs.readFileSync(indexPath, 'utf8')
+
+const moduleRequirePattern = /^\s*exports\.(\w+)\s*=\s*require\(\s*['"]\.\/([^'"]+)['"]\s*\)/gm
+const callablePattern = /^\s*exports\.(\w+)\s*=\s*onCall\s*\(/gm
+
+const functions = new Set()
+let moduleMatch
+
+while ((moduleMatch = moduleRequirePattern.exec(indexSource)) !== null) {
+  const prefix = moduleMatch[1]
+  const modulePath = path.join(root, 'functions', `${moduleMatch[2]}.js`)
+  if (!fs.existsSync(modulePath))
+    continue
+
+  const moduleSource = fs.readFileSync(modulePath, 'utf8')
+  let callableMatch
+
+  while ((callableMatch = callablePattern.exec(moduleSource)) !== null)
+    functions.add(`${prefix}-${callableMatch[1]}`)
+}
+
+console.log(Array.from(functions).join('\n'))
+NODE
+  )"
+
+  if [ -z "$callable_functions" ]; then
+    echo "No onCall functions detected. Skipping public invoker enforcement."
+    return
+  fi
+
+  echo "Ensuring public invoker access for callable functions in region '${region}'..."
+  while IFS= read -r function_name; do
+    [ -z "$function_name" ] && continue
+    echo " - ${function_name}"
+    gcloud functions add-invoker-policy-binding "$function_name" \
+      --gen2 \
+      --region "$region" \
+      --member="allUsers" >/dev/null
+  done <<< "$callable_functions"
+}
+
 check_repo "." "root"
 warn_edge_subtree_sync
 
 pnpm run generate
 export NODE_ENV=production
 firebase deploy --only functions
+ensure_callable_public_access
 firebase deploy --only hosting
 firebase deploy --only firestore
 firebase deploy --only storage

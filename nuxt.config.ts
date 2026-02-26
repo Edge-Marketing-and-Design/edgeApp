@@ -24,7 +24,7 @@ export default defineNuxtConfig({
       meta: [
         {
           'http-equiv': 'Content-Security-Policy',
-          'content': 'font-src \'self\' https://files.edgemarketingdesign.com https://use.typekit.net https://p.typekit.net data:;',
+          'content': 'font-src \'self\' https://files.edgemarketingdesign.com https://use.typekit.net https://p.typekit.net https://fonts.gstatic.com data:;',
         },
       ],
     },

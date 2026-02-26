@@ -24,6 +24,10 @@
     ],
     "rewrites": [
       {
+        "source": "/api/history/**",
+        "function": "cms-trackHistory"
+      },
+      {
         "source": "/api/stripe",
         "function": {
           "functionId": "stripe-webhook",

@@ -22,7 +22,7 @@
     "@capacitor/push-notifications": "5.1.0",
     "@chenfengyuan/vue-number-input": "2",
     "@edgedev/firebase": "latest",
-    "@edgedev/template-engine": "^0.1.12",
+    "@edgedev/template-engine": "latest",
     "@guolao/vue-monaco-editor": "^1.5.5",
     "@tiptap/extension-image": "^2.11.5",
     "@tiptap/extension-text-style": "^2.11.5",
