@@ -121,6 +121,11 @@ const BLOCK_CONTENT_SNIPPETS = [
     description: 'Simple text field placeholder',
   },
   {
+    label: 'Text with Options',
+    snippet: '{{{#text {"field":"fieldName","title":"Field Label","option":{"field":"fieldName","options":[{"title":"Option 1","name":"option1"},{"title":"Option 2","name":"option2"}],"optionsKey":"title","optionsValue":"name"},"value":"option1"}}}}',
+    description: 'Text field with selectable options',
+  },
+  {
     label: 'Text Area',
     snippet: '{{{#textarea {"field": "fieldName", "value": "" }}}}',
     description: 'Textarea field placeholder',
@@ -898,6 +903,7 @@ const exportCurrentBlock = () => {
                     :theme="theme"
                     :edit-mode="true"
                     :contain-fixed="true"
+                    :disable-interactive-preview-in-edit="false"
                     :allow-delete="false"
                     :viewport-mode="previewViewportMode"
                     :block-id="state.previewBlock.id"
@@ -922,12 +928,15 @@ const exportCurrentBlock = () => {
         </SheetHeader>
         <div class="px-6 pb-6">
           <Tabs class="w-full" default-value="guide">
-            <TabsList class="w-full mt-3 bg-secondary rounded-sm grid grid-cols-4">
+            <TabsList class="w-full mt-3 bg-secondary rounded-sm grid grid-cols-5">
               <TabsTrigger value="guide" class="w-full text-black data-[state=active]:bg-black data-[state=active]:text-white">
                 Block Guide
               </TabsTrigger>
               <TabsTrigger value="carousel" class="w-full text-black data-[state=active]:bg-black data-[state=active]:text-white">
                 Carousel Usage
+              </TabsTrigger>
+              <TabsTrigger value="form-helpers" class="w-full text-black data-[state=active]:bg-black data-[state=active]:text-white">
+                Form Helpers
               </TabsTrigger>
               <TabsTrigger value="nav-bar" class="w-full text-black data-[state=active]:bg-black data-[state=active]:text-white">
                 Nav Bar
@@ -959,6 +968,7 @@ const exportCurrentBlock = () => {
                       <a href="#arrays-filters" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Filters</a>
                       <a href="#conditionals" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Conditionals</a>
                       <a href="#subarrays" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Subarrays</a>
+                      <a href="#entries" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Entries</a>
                       <a href="#rendering-rules" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Rendering</a>
                       <a href="#loading-tokens" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Loading</a>
                       <a href="#validation" class="px-2 py-1 rounded border border-border bg-background hover:bg-muted transition">Validation</a>
@@ -1243,6 +1253,29 @@ const exportCurrentBlock = () => {
                     </p>
                   </section>
 
+                  <section id="entries" class="space-y-3">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Entries (Object Key/Value Loops)
+                    </h3>
+                    <pre v-pre class="rounded-md bg-muted p-3 text-xs overflow-auto"><code>{{{#entries:pair {"field":"settings","value":{"theme":"dark","ctaText":"Contact Us"}}}}}
+  <div><strong>{{pair.key}}</strong>: {{pair.value}}</div>
+{{{/entries}}}
+
+{{{#entries:group {"field":"groupedItems","value":{"featured":["One","Two"],"archive":["Three"]}}}}}
+  <h4>{{group.key}}</h4>
+  {{{#subarray:child {"field":"item.value","value":[]}}}}
+    <div>{{child}}</div>
+  {{{/subarray}}}
+{{{/entries}}}</code></pre>
+                    <div class="text-sm text-foreground space-y-1">
+                      <div><code>entries</code> loops object fields instead of arrays.</div>
+                      <div>Use it at the root or inside other loops; it does not need to be inside <code>subarray</code>.</div>
+                      <div>Each iteration exposes <code>item.key</code> and <code>item.value</code>, plus alias access like <code v-pre>{{pair.key}}</code>.</div>
+                      <div>If a value is an array, use nested <code>subarray</code> on <code>item.value</code>.</div>
+                      <div>If <code>field</code> is not an object, it renders nothing.</div>
+                    </div>
+                  </section>
+
                   <section id="rendering-rules" class="space-y-2">
                     <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                       Rendering Rules
@@ -1372,7 +1405,6 @@ const exportCurrentBlock = () => {
                     </h3>
                     <p class="text-sm text-foreground">
                       Add <code>data-carousel</code> markup to any CMS block and the runtime auto-initializes Embla on the client.
-                      This is initialized in <code>htmlContent.vue</code> and works inside raw block HTML.
                     </p>
                   </section>
 
@@ -1488,6 +1520,14 @@ const exportCurrentBlock = () => {
                       <div><code>cms-nav-overlay</code>: backdrop click-to-close (optional but recommended).</div>
                       <div><code>cms-nav-close</code>: explicit close button in panel (optional).</div>
                       <div><code>cms-nav-link</code>: links that should close panel on click (optional).</div>
+                      <div><code>cms-nav-folder</code>: desktop folder wrapper for dropdown behavior (recommended).</div>
+                      <div><code>cms-nav-folder-toggle</code>: desktop folder trigger link/button (recommended).</div>
+                      <div><code>cms-nav-folder-menu</code>: desktop dropdown menu panel for folder items (recommended).</div>
+                      <div><code>cms-nav-main</code>: optional hook for scroll/sticky/hide classes (defaults to first <code>&lt;nav&gt;</code>).</div>
+                      <div><code>cms-nav-pos-right</code>, <code>cms-nav-pos-left</code>, <code>cms-nav-pos-center</code>: helper classes for menu position behavior.</div>
+                      <div><code>cms-nav-layout</code>, <code>cms-nav-logo</code>, <code>cms-nav-desktop</code>: optional structure hooks for precise layout mapping.</div>
+                      <div><code>cms-nav-sticky</code>: force sticky top behavior even if your nav did not include fixed classes.</div>
+                      <div><code>cms-nav-hide-on-down</code>: hide nav on scroll down, show on scroll up.</div>
                     </div>
                   </section>
 
@@ -1499,6 +1539,12 @@ const exportCurrentBlock = () => {
                       <div><code>data-cms-nav-open="true"</code> to start open.</div>
                       <div><code>data-cms-nav-open-class="your-class"</code> to change the root open class (default <code>is-open</code>).</div>
                       <div><code>data-cms-nav-close-on-link="false"</code> to keep panel open after link clicks.</div>
+                      <div><code>data-cms-nav-position="right|left|center"</code> as an alternative to helper classes.</div>
+                      <div><code>data-cms-nav-scrolled-class</code> / <code>data-cms-nav-top-class</code>: classes toggled on nav main target.</div>
+                      <div><code>data-cms-nav-scrolled-row-class</code> / <code>data-cms-nav-top-row-class</code>: classes toggled on <code>cms-nav-layout</code> for shrink/expand.</div>
+                      <div><code>data-cms-nav-scroll-threshold</code>: px before “scrolled” classes apply (default 10).</div>
+                      <div><code>data-cms-nav-hide-on-down="true"</code>, <code>data-cms-nav-hide-threshold</code> (default 80), <code>data-cms-nav-hide-delta</code> (default 6).</div>
+                      <div><code>data-cms-nav-hidden-class</code> / <code>data-cms-nav-visible-class</code> / <code>data-cms-nav-transition-class</code> for hide/show animation control.</div>
                     </div>
                   </section>
 
@@ -1506,26 +1552,65 @@ const exportCurrentBlock = () => {
                     <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                       Nav Block Template (Copy / Paste)
                     </h3>
-                    <pre v-pre class="rounded-md bg-muted p-3 text-xs overflow-auto"><code>&lt;div class="cms-nav-root" data-cms-nav-root data-cms-nav-close-on-link="true"&gt;
-  &lt;nav class="fixed inset-x-0 top-0 z-30 w-full bg-transparent text-navText"&gt;
-    {{{#array {"field":"siteDoc","as":"site","collection":{"path":"sites","query":[{"field":"docId","operator":"==","value":"{siteId}"}],"order":[]},"limit":1,"value":[]}}}}
+                    <pre v-pre class="rounded-md bg-muted p-3 text-xs overflow-auto"><code>&lt;div class="cms-nav-root cms-nav-sticky" data-cms-nav-root data-cms-nav-position="{{{#text {"field":"navPosition","title":"Menu Position","option":{"field":"navPosition","options":[{"title":"Right","name":"right"},{"title":"Left","name":"left"},{"title":"Center","name":"center"}],"optionsKey":"title","optionsValue":"name"},"value":"right"}}}}" data-cms-nav-close-on-link="true" data-cms-nav-top-class="bg-transparent border-transparent" data-cms-nav-scrolled-class="bg-navBg/80 backdrop-blur-lg shadow-lg" data-cms-nav-top-row-class="h-[64px] md:h-[88px] py-6 md:py-8" data-cms-nav-scrolled-row-class="h-[56px] md:h-[68px] py-5 md:py-4"&gt;
+  {{{#array {"field":"siteDoc","collection":{"path":"sites","uniqueKey":"{orgId}","query":[{"field":"docId","operator":"==","value":"{siteId}"}],"order":[]},"limit":1,"value":[]}}}}
+  &lt;nav class="cms-nav-main fixed inset-x-0 top-0 z-30 w-full bg-transparent text-navText"&gt;
     &lt;div class="relative w-full px-6 md:px-12"&gt;
-      &lt;div class="flex h-[64px] md:h-[88px] items-center justify-between gap-6 py-6 md:py-8"&gt;
-        &lt;a href="/" class="cursor-pointer text-xl text-navText"&gt;
-          &lt;img src="{{site.logo}}" class="h-[56px] md:h-[72px] py-3" /&gt;
+      &lt;div class="cms-nav-layout flex h-[64px] md:h-[88px] items-center justify-between gap-6 py-6 md:py-8"&gt;
+        &lt;a href="/" class="cms-nav-logo cursor-pointer text-xl text-navText"&gt;
+          {{{#if {"cond":"item.logoLight"}}}}
+          &lt;img src="{{item.logoLight}}" class="h-[56px] md:h-[72px] py-3" /&gt;
+          {{{#else}}}
+          &lt;img src="{{item.logo}}" class="h-[56px] md:h-[72px] py-3" /&gt;
+          {{{/if}}}
         &lt;/a&gt;
 
-        &lt;div class="ml-auto flex items-center gap-2"&gt;
-          &lt;ul class="hidden lg:flex items-center space-x-[20px] pt-1 text-sm uppercase tracking-widest"&gt;
-            {{{#subarray:navItem {"field":"item.menus.Site Root","value":[]}}}}
-            &lt;li class="relative group"&gt;
-              {{{#if {"cond":"navItem.item.type == external"}}}}
-              &lt;a href="{{navItem.item.url}}" class="nav-item cursor-pointer"&gt;{{navItem.name}}&lt;/a&gt;
+        &lt;div class="cms-nav-desktop ml-auto flex items-center gap-2"&gt;
+          &lt;ul class="hidden lg:flex items-center gap-x-[20px] pt-1 text-sm uppercase tracking-widest list-none m-0 p-0 [&amp;&gt;li]:m-0 [&amp;&gt;li&gt;a]:m-0"&gt;
+            {{{#subarray:menuItem {"field":"item.menus.Site Root","limit":5,"value":[]}}}}
+            &lt;li class="relative group cms-nav-folder" data-cms-nav-folder&gt;
+              {{{#if {"cond":"menuItem.item.type == 'external'"}}}}
+              &lt;a href="{{menuItem.item.url}}" class="cursor-pointer"&gt;{{menuItem.name}}&lt;/a&gt;
               {{{#else}}}
-              {{{#if {"cond":"navItem.name == home"}}}}
-              &lt;a href="/" class="nav-item cursor-pointer"&gt;{{navItem.name}}&lt;/a&gt;
+              {{{#if {"cond":"menuItem.item == '[object Object]'"}}}}
+              {{{#entries:folderEntry {"field":"menuItem.item","value":{}}}}}
+              {{{#if {"cond":"folderEntry.key == 'home'"}}}}
+              &lt;a href="/" class="cms-nav-folder-toggle cursor-pointer text-sideNavText" data-cms-nav-folder-toggle&gt;{{menuItem.menuTitle}}&lt;/a&gt;
               {{{#else}}}
-              &lt;a href="/{{navItem.name}}" class="nav-item cursor-pointer"&gt;{{navItem.name}}&lt;/a&gt;
+              &lt;a href="/{{folderEntry.key}}" class="cms-nav-folder-toggle cursor-pointer text-sideNavText" data-cms-nav-folder-toggle&gt;{{menuItem.menuTitle}}&lt;/a&gt;
+              {{{/if}}}
+              &lt;div class="cms-nav-folder-menu absolute left-0 top-full z-40 hidden min-w-max whitespace-nowrap bg-sideNavBg text-sideNavText py-2 text-left px-12 normal-case tracking-normal shadow-xl" data-cms-nav-folder-menu&gt;
+              &lt;ul&gt;
+                {{{#subarray:folderChild {"field":"item.value","value":[]}}}}
+                &lt;li class="py-1"&gt;
+                  {{{#if {"cond":"folderChild.item.type == 'external'"}}}}
+                  &lt;a href="{{folderChild.item.url}}" class="block cursor-pointer whitespace-nowrap text-sideNavText"&gt;{{folderChild.name}}&lt;/a&gt;
+                  {{{#else}}}
+                  {{{#if {"cond":"folderChild.menuTitle"}}}}
+                  &lt;a href="/{{folderEntry.key}}/{{folderChild.name}}" class="block cursor-pointer whitespace-nowrap text-sideNavText"&gt;{{folderChild.menuTitle}}&lt;/a&gt;
+                  {{{#else}}}
+                  &lt;a href="/{{folderEntry.key}}/{{folderChild.name}}" class="block cursor-pointer whitespace-nowrap text-sideNavText"&gt;{{folderChild.name}}&lt;/a&gt;
+                  {{{/if}}}
+                  {{{/if}}}
+                &lt;/li&gt;
+                {{{/subarray}}}
+              &lt;/ul&gt;
+              &lt;/div&gt;
+              {{{/entries}}}
+              {{{#else}}}
+              {{{#if {"cond":"menuItem.name == 'home'"}}}}
+              {{{#if {"cond":"menuItem.menuTitle"}}}}
+              &lt;a href="/" class="cursor-pointer"&gt;{{menuItem.menuTitle}}&lt;/a&gt;
+              {{{#else}}}
+              &lt;a href="/" class="cursor-pointer"&gt;{{menuItem.name}}&lt;/a&gt;
+              {{{/if}}}
+              {{{#else}}}
+              {{{#if {"cond":"menuItem.menuTitle"}}}}
+              &lt;a href="/{{menuItem.name}}" class="cursor-pointer"&gt;{{menuItem.menuTitle}}&lt;/a&gt;
+              {{{#else}}}
+              &lt;a href="/{{menuItem.name}}" class="cursor-pointer"&gt;{{menuItem.name}}&lt;/a&gt;
+              {{{/if}}}
+              {{{/if}}}
               {{{/if}}}
               {{{/if}}}
             &lt;/li&gt;
@@ -1540,34 +1625,118 @@ const exportCurrentBlock = () => {
         &lt;/div&gt;
       &lt;/div&gt;
     &lt;/div&gt;
-    {{{/array}}}
   &lt;/nav&gt;
 
   &lt;div class="cms-nav-overlay fixed inset-0 z-[110] bg-black/50 transition-opacity duration-300 opacity-0 pointer-events-none"&gt;&lt;/div&gt;
 
   &lt;aside class="cms-nav-panel fixed inset-y-0 right-0 z-[120] w-full max-w-md bg-sideNavBg text-sideNavText transition-all duration-300 translate-x-full opacity-0 pointer-events-none"&gt;
-    &lt;div class="relative h-full overflow-y-auto px-8 py-10"&gt;
+    &lt;div class="relative flex h-full flex-col overflow-y-auto px-8 py-10 text-center"&gt;
       &lt;button type="button" class="cms-nav-close absolute right-6 top-6 text-4xl text-sideNavText"&gt;&amp;times;&lt;/button&gt;
 
-      &lt;ul class="mt-14 space-y-4 uppercase"&gt;
-        {{{#array {"field":"siteDoc","as":"site","collection":{"path":"sites","query":[{"field":"docId","operator":"==","value":"{siteId}"}],"order":[]},"limit":1,"value":[]}}}}
-        {{{#subarray:navItem {"field":"item.menus.Site Root","value":[]}}}}
-        &lt;li&gt;
-          {{{#if {"cond":"navItem.item.type == external"}}}}
-          &lt;a href="{{navItem.item.url}}" class="cms-nav-link block text-sideNavText"&gt;{{navItem.name}}&lt;/a&gt;
+      &lt;div class="mb-8 mt-2 flex items-center justify-center gap-4"&gt;
+        &lt;a href="/" class="flex items-center gap-4 text-navText"&gt;
+          &lt;img src="{{item.logo}}" class="h-[30px] w-auto max-w-full object-contain" /&gt;
+          {{{#if {"cond":"item.brandLogoDark"}}}}
+          &lt;span class="h-10 w-px bg-black" aria-hidden="true"&gt;&lt;/span&gt;
+          &lt;img src="{{item.brandLogoDark}}" class="h-[30px] w-auto max-w-full object-contain" /&gt;
+          {{{/if}}}
+        &lt;/a&gt;
+      &lt;/div&gt;
+
+      &lt;ul class="w-full space-y-4 border-b border-black pb-4 uppercase"&gt;
+        {{{#subarray:menuItem {"field":"item.menus.Site Root","value":[]}}}}
+        &lt;li class="border-t border-black pt-4"&gt;
+          {{{#if {"cond":"menuItem.item.type == 'external'"}}}}
+          &lt;a href="{{menuItem.item.url}}" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.name}}&lt;/a&gt;
           {{{#else}}}
-          {{{#if {"cond":"navItem.name == home"}}}}
-          &lt;a href="/" class="cms-nav-link block text-sideNavText"&gt;{{navItem.name}}&lt;/a&gt;
+          {{{#if {"cond":"menuItem.item == '[object Object]'"}}}}
+          {{{#entries:folderEntry {"field":"menuItem.item","value":{}}}}}
+          {{{#if {"cond":"folderEntry.key == 'home'"}}}}
+          &lt;a href="/" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.menuTitle}}&lt;/a&gt;
           {{{#else}}}
-          &lt;a href="/{{navItem.name}}" class="cms-nav-link block text-sideNavText"&gt;{{navItem.name}}&lt;/a&gt;
+          &lt;a href="/{{folderEntry.key}}" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.menuTitle}}&lt;/a&gt;
+          {{{/if}}}
+          &lt;ul class="mt-2 space-y-2 border-l border-black/40 pl-4"&gt;
+            {{{#subarray:folderChild {"field":"item.value","value":[]}}}}
+            &lt;li&gt;
+              {{{#if {"cond":"folderChild.item.type == 'external'"}}}}
+              &lt;a href="{{folderChild.item.url}}" class="cms-nav-link block text-sideNavText tracking-widest text-xs"&gt;{{folderChild.name}}&lt;/a&gt;
+              {{{#else}}}
+              {{{#if {"cond":"folderChild.menuTitle"}}}}
+              &lt;a href="/{{folderEntry.key}}/{{folderChild.name}}" class="cms-nav-link block text-sideNavText tracking-widest text-xs"&gt;{{folderChild.menuTitle}}&lt;/a&gt;
+              {{{#else}}}
+              &lt;a href="/{{folderEntry.key}}/{{folderChild.name}}" class="cms-nav-link block text-sideNavText tracking-widest text-xs"&gt;{{folderChild.name}}&lt;/a&gt;
+              {{{/if}}}
+              {{{/if}}}
+            &lt;/li&gt;
+            {{{/subarray}}}
+          &lt;/ul&gt;
+          {{{/entries}}}
+          {{{#else}}}
+          {{{#if {"cond":"menuItem.name == 'home'"}}}}
+          {{{#if {"cond":"menuItem.menuTitle"}}}}
+          &lt;a href="/" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.menuTitle}}&lt;/a&gt;
+          {{{#else}}}
+          &lt;a href="/" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.name}}&lt;/a&gt;
+          {{{/if}}}
+          {{{#else}}}
+          {{{#if {"cond":"menuItem.menuTitle"}}}}
+          &lt;a href="/{{menuItem.name}}" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.menuTitle}}&lt;/a&gt;
+          {{{#else}}}
+          &lt;a href="/{{menuItem.name}}" class="cms-nav-link block text-sideNavText tracking-widest text-sm"&gt;{{menuItem.name}}&lt;/a&gt;
+          {{{/if}}}
+          {{{/if}}}
           {{{/if}}}
           {{{/if}}}
         &lt;/li&gt;
         {{{/subarray}}}
-        {{{/array}}}
       &lt;/ul&gt;
+
+      &lt;div class="mt-10 flex w-full items-center justify-center gap-4"&gt;
+        {{{#if {"cond":"item.socialFacebook"}}}}
+        &lt;a href="{{item.socialFacebook}}" target="_blank" rel="noopener" class="flex h-10 w-10 items-center justify-center rounded-full border border-sideNavText text-sideNavText transition-colors duration-200 hover:bg-sideNavText hover:text-sideNavBg"&gt;
+          &lt;span class="sr-only"&gt;Facebook&lt;/span&gt;
+          &lt;span class="h-5 w-5 [&amp;&gt;svg]:h-5 [&amp;&gt;svg]:w-5 [&amp;&gt;svg]:fill-current" aria-hidden="true"&gt;
+            &lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 512"&gt;
+              &lt;path d="M80 299.3V512H196V299.3h86.5l18-97.8H196V166.9c0-51.7 20.3-71.5 72.7-71.5c16.3 0 29.4 .4 37 1.2V7.9C291.4 4 256.4 0 236.2 0C129.3 0 80 50.5 80 159.4v42.1H14v97.8H80z"&gt;&lt;/path&gt;
+            &lt;/svg&gt;
+          &lt;/span&gt;
+        &lt;/a&gt;
+        {{{/if}}}
+        {{{#if {"cond":"item.socialInstagram"}}}}
+        &lt;a href="{{item.socialInstagram}}" target="_blank" rel="noopener" class="flex h-10 w-10 items-center justify-center rounded-full border border-sideNavText text-sideNavText transition-colors duration-200 hover:bg-sideNavText hover:text-sideNavBg"&gt;
+          &lt;span class="sr-only"&gt;Instagram&lt;/span&gt;
+          &lt;span class="h-5 w-5 [&amp;&gt;svg]:h-5 [&amp;&gt;svg]:w-5 [&amp;&gt;svg]:fill-current" aria-hidden="true"&gt;
+            &lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"&gt;
+              &lt;path d="M224.1 141c-63.6 0-114.9 51.3-114.9 114.9s51.3 114.9 114.9 114.9S339 319.5 339 255.9 287.7 141 224.1 141zm0 189.6c-41.1 0-74.7-33.5-74.7-74.7s33.5-74.7 74.7-74.7 74.7 33.5 74.7 74.7-33.6 74.7-74.7 74.7zm146.4-194.3c0 14.9-12 26.8-26.8 26.8-14.9 0-26.8-12-26.8-26.8s12-26.8 26.8-26.8 26.8 12 26.8 26.8zm76.1 27.2c-1.7-35.9-9.9-67.7-36.2-93.9-26.2-26.2-58-34.4-93.9-36.2-37-2.1-147.9-2.1-184.9 0-35.8 1.7-67.6 9.9-93.9 36.1s-34.4 58-36.2 93.9c-2.1 37-2.1 147.9 0 184.9 1.7 35.9 9.9 67.7 36.2 93.9s58 34.4 93.9 36.2c37 2.1 147.9 2.1 184.9 0 35.9-1.7 67.7-9.9 93.9-36.2 26.2-26.2 34.4-58 36.2-93.9 2.1-37 2.1-147.8 0-184.8zM398.8 388c-7.8 19.6-22.9 34.7-42.6 42.6-29.5 11.7-99.5 9-132.1 9s-102.7 2.6-132.1-9c-19.6-7.8-34.7-22.9-42.6-42.6-11.7-29.5-9-99.5-9-132.1s-2.6-102.7 9-132.1c7.8-19.6 22.9-34.7 42.6-42.6 29.5-11.7 99.5-9 132.1-9s102.7-2.6 132.1 9c19.6 7.8 34.7 22.9 42.6 42.6 11.7 29.5 9 99.5 9 132.1s2.7 102.7-9 132.1z"&gt;&lt;/path&gt;
+            &lt;/svg&gt;
+          &lt;/span&gt;
+        &lt;/a&gt;
+        {{{/if}}}
+        {{{#if {"cond":"item.socialLinkedIn"}}}}
+        &lt;a href="{{item.socialLinkedIn}}" target="_blank" rel="noopener" class="flex h-10 w-10 items-center justify-center rounded-full border border-sideNavText text-sideNavText transition-colors duration-200 hover:bg-sideNavText hover:text-sideNavBg"&gt;
+          &lt;span class="sr-only"&gt;LinkedIn&lt;/span&gt;
+          &lt;span class="h-5 w-5 [&amp;&gt;svg]:h-5 [&amp;&gt;svg]:w-5 [&amp;&gt;svg]:fill-current" aria-hidden="true"&gt;
+            &lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"&gt;
+              &lt;path d="M100.28 448H7.4V148.9h92.88zM53.79 108.1C24.09 108.1 0 83.5 0 53.8a53.79 53.79 0 0 1 107.58 0c0 29.7-24.1 54.3-53.79 54.3zM447.9 448h-92.68V302.4c0-34.7-.7-79.2-48.29-79.2-48.29 0-55.69 37.7-55.69 76.7V448h-92.78V148.9h89.08v40.8h1.3c12.4-23.5 42.69-48.3 87.88-48.3 94 0 111.28 61.9 111.28 142.3V448z"&gt;&lt;/path&gt;
+            &lt;/svg&gt;
+          &lt;/span&gt;
+        &lt;/a&gt;
+        {{{/if}}}
+        {{{#if {"cond":"item.socialYouTube"}}}}
+        &lt;a href="{{item.socialYouTube}}" target="_blank" rel="noopener" class="flex h-10 w-10 items-center justify-center rounded-full border border-sideNavText text-sideNavText transition-colors duration-200 hover:bg-sideNavText hover:text-sideNavBg"&gt;
+          &lt;span class="sr-only"&gt;YouTube&lt;/span&gt;
+          &lt;span class="h-5 w-5 [&amp;&gt;svg]:h-5 [&amp;&gt;svg]:w-5 [&amp;&gt;svg]:fill-current" aria-hidden="true"&gt;
+            &lt;svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"&gt;
+              &lt;path d="M549.655 124.083c-6.281-23.65-24.787-42.276-48.284-48.597C458.781 64 288 64 288 64S117.22 64 74.629 75.486c-23.497 6.322-42.003 24.947-48.284 48.597-11.412 42.867-11.412 132.305-11.412 132.305s0 89.438 11.412 132.305c6.281 23.65 24.787 41.5 48.284 47.821C117.22 448 288 448 288 448s170.78 0 213.371-11.486c23.497-6.321 42.003-24.171 48.284-47.821 11.412-42.867 11.412-132.305 11.412-132.305s0-89.438-11.412-132.305zm-317.51 213.508V175.185l142.739 81.205-142.739 81.201z"&gt;&lt;/path&gt;
+            &lt;/svg&gt;
+          &lt;/span&gt;
+        &lt;/a&gt;
+        {{{/if}}}
+      &lt;/div&gt;
     &lt;/div&gt;
   &lt;/aside&gt;
+  {{{/array}}}
 &lt;/div&gt;</code></pre>
                   </section>
 
@@ -1579,7 +1748,151 @@ const exportCurrentBlock = () => {
                       <div>Clicking the nav button opens the slide-out in Block Editor preview and Page Preview mode.</div>
                       <div>Interactive nav elements do not trigger “Edit Block”. Clicking outside them still opens the editor in edit mode.</div>
                       <div>In CMS preview, fixed nav and panel are contained to the preview surface by the block wrapper.</div>
+                      <div><code>cms-nav-pos-left</code> also switches the slide-out panel to the left side.</div>
                     </div>
+                  </section>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="form-helpers">
+              <div class="h-[calc(100vh-190px)] overflow-y-auto pr-1 pb-6">
+                <div class="space-y-6">
+                  <section class="space-y-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      What This Does
+                    </h3>
+                    <p class="text-sm text-foreground">
+                      Add helper classes or data attributes to a CMS block form, and the client runtime will submit to
+                      <code>/api/contact</code> with anti-bot checks and submit history tracking.
+                    </p>
+                  </section>
+
+                  <section class="space-y-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      CMS Preview Scope
+                    </h3>
+                    <p class="text-sm text-foreground">
+                      In Block Editor, this is for structure and messaging preview only. Use it to verify markup and required-state UX,
+                      not to validate end-to-end delivery.
+                    </p>
+                  </section>
+
+                  <section class="space-y-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Helper Contract
+                    </h3>
+                    <div class="text-sm text-foreground space-y-1">
+                      <div><code>form.cms-form</code> or <code>form[data-cms-form]</code>: form root.</div>
+                      <div><code>.cms-form-required</code> or <code>[data-cms-required=&quot;true&quot;]</code>: required field markers.</div>
+                      <div><code>.cms-form-submit</code> or <code>[data-cms-form-submit]</code>: submit button.</div>
+                      <div><code>.cms-form-message</code> or <code>[data-cms-form-message]</code>: status/error message container.</div>
+                    </div>
+                  </section>
+
+                  <section class="space-y-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Defaults + Messages
+                    </h3>
+                    <div class="text-sm text-foreground space-y-1">
+                      <div>Default endpoint: <code>/api/contact</code>.</div>
+                      <div><code>data-cms-success-message</code>: override success copy.</div>
+                      <div><code>data-cms-error-message</code>: override error copy.</div>
+                      <div><code>data-cms-required-message</code>: override required-field copy.</div>
+                    </div>
+                  </section>
+
+                  <section class="space-y-2">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Context IDs
+                    </h3>
+                    <p class="text-sm text-foreground">
+                      Block/Page/Site/Org IDs are inherited from the CMS HTML wrapper automatically, so forms in blocks
+                      do not need manual context wiring.
+                    </p>
+                  </section>
+
+                  <section class="space-y-3">
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Contact Form Example (Block HTML)
+                    </h3>
+                    <pre v-pre class="rounded-md bg-muted p-3 text-xs overflow-auto"><code>&lt;section
+  class="relative cms-block cms-block-contact-form-placeholder rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 px-4 py-6 sm:px-6 sm:py-8"
+  data-block-type="contact-form-placeholder"
+&gt;
+  &lt;div class="mx-auto max-w-3xl pt-6"&gt;
+    &lt;div class="mb-6 space-y-2 text-center sm:text-left"&gt;
+      &lt;h2 class="text-xl font-semibold text-slate-900"&gt;
+        {{{#text {"field":"formHeader","title":"Form Header","value":"Contact Us"}}}}
+      &lt;/h2&gt;
+      &lt;p class="text-sm text-slate-600"&gt;
+        {{{#text {"field":"formSubheader","title":"Form Subheader","value":"Subheader content"}}}}
+      &lt;/p&gt;
+    &lt;/div&gt;
+
+    &lt;form
+      class="cms-form space-y-4"
+      data-cms-form
+      data-cms-required-message="Please complete all required fields."
+      data-cms-success-message="Thanks! Your message has been sent."
+      data-cms-error-message="Sorry, we could not send your message. Please try again."
+      data-cms-success-class="cms-form-message cms-form-message-success"
+      data-cms-error-class="cms-form-message cms-form-message-error"
+      data-cms-invalid-class="cms-form-field-invalid"
+      data-cms-working-class="cms-form-submitting"
+    &gt;
+      &lt;!-- Honeypot (optional, used by helper if present) --&gt;
+      &lt;div class="pointer-events-none absolute -left-[9999px] top-auto h-px w-px overflow-hidden opacity-0" aria-hidden="true"&gt;
+        &lt;label for="cms-company"&gt;Company&lt;/label&gt;
+        &lt;input id="cms-company" name="company" type="text" tabindex="-1" autocomplete="off" /&gt;
+      &lt;/div&gt;
+
+      &lt;div class="space-y-4"&gt;
+        {{{#array {"field":"formFields","schema":[{"field":"fieldName","type":"text","title":"Field Label"},{"field":"fieldType","type":"option","title":"Field Type","option":{"optionsKey":"title","optionsValue":"value","options":[{"title":"Text","value":"text"},{"title":"Email","value":"email"},{"title":"Phone","value":"tel"},{"title":"Textarea","value":"textarea"}]},"value":"text"},{"field":"fieldRequired","type":"option","title":"Required","option":{"optionsKey":"title","optionsValue":"value","options":[{"title":"Yes","value":"true"},{"title":"No","value":"false"}]},"value":"true"}],"value":[{"fieldName":"Name","fieldType":"text","fieldRequired":"true"},{"fieldName":"Email","fieldType":"email","fieldRequired":"true"},{"fieldName":"Message","fieldType":"textarea","fieldRequired":"true"}]}}}}
+          &lt;div class="space-y-1"&gt;
+            &lt;label class="text-xs font-medium uppercase tracking-wide text-slate-600"&gt;
+              {{item.fieldName}}
+            &lt;/label&gt;
+
+            {{{#if {"cond":"item.fieldType == 'textarea'"}}}}
+              &lt;textarea
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                data-cms-required="{{item.fieldRequired}}"
+                name="{{item.fieldName}}"
+                placeholder="{{item.fieldName}}"
+                rows="6"
+              &gt;&lt;/textarea&gt;
+            {{{#else}}}
+              &lt;input
+                class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
+                data-cms-required="{{item.fieldRequired}}"
+                type="{{item.fieldType}}"
+                name="{{item.fieldName}}"
+                placeholder="{{item.fieldName}}"
+              /&gt;
+            {{{/if}}}
+          &lt;/div&gt;
+        {{{/array}}}
+      &lt;/div&gt;
+
+      &lt;div class="mt-6"&gt;
+        &lt;button
+          type="submit"
+          class="cms-form-submit inline-flex w-full items-center justify-center rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          data-cms-form-submit
+        &gt;
+          {{{#text {"field":"buttonText","title":"Button Text","value":"Send Message"}}}}
+        &lt;/button&gt;
+      &lt;/div&gt;
+
+      &lt;p class="cms-form-message hidden text-sm" data-cms-form-message&gt;&lt;/p&gt;
+    &lt;/form&gt;
+
+    &lt;div class="hidden"&gt;
+      {{{#text {"field":"emailTo","title":"Email To","value":"test@testing.com"}}}}
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/section&gt;</code></pre>
                   </section>
                 </div>
               </div>
