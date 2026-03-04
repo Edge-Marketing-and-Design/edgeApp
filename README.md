@@ -38,6 +38,7 @@ Use the provided scripts instead of manual edits:
 ./edge-pull.sh
 ./edge-push.sh
 ```
+If the `edge-vue-components` remote is missing locally, these scripts auto-add it.
 
 ## Deep links (iOS)
 Add URL types to your `Info.plist` when configuring deep links:

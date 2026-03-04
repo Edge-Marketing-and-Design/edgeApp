@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-git fetch edge-vue-components >/dev/null 2>&1
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./edge-remote.sh
+source "$SCRIPT_DIR/edge-remote.sh"
 
-UP_TREE="$(git rev-parse edge-vue-components/main^{tree})"
+fetch_edge_remote >/dev/null 2>&1
+
+UP_TREE="$(git rev-parse "$EDGE_REMOTE_NAME/main^{tree}")"
 LOCAL_TREE="$(git rev-parse HEAD:edge)"
 
 if [ "$UP_TREE" = "$LOCAL_TREE" ]
 then
-  echo "edge is in sync with edge-vue-components/main"
+  echo "edge is in sync with $EDGE_REMOTE_NAME/main"
 else
-  echo "edge differs from edge-vue-components/main"
+  echo "edge differs from $EDGE_REMOTE_NAME/main"
 fi
