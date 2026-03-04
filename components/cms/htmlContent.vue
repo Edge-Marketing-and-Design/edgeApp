@@ -397,12 +397,124 @@ function initCmsNavHelpers(scope) {
   if (!scope || !import.meta.client)
     return
 
+  const existingCleanupFns = Array.isArray(scope.__cmsNavCleanupFns)
+    ? scope.__cmsNavCleanupFns
+    : []
+  existingCleanupFns.forEach((cleanup) => {
+    try {
+      cleanup()
+    }
+    catch {}
+  })
+  scope.__cmsNavCleanupFns = []
+
   const roots = scope.querySelectorAll('.cms-nav-root, [data-cms-nav-root]')
   roots.forEach((root) => {
-    if (root.dataset.cmsNavInit === 'true')
-      return
+    const parseBoolean = (rawValue, fallback = false) => {
+      if (rawValue == null || rawValue === '')
+        return fallback
+      const normalized = String(rawValue).trim().toLowerCase()
+      if (['false', '0', 'off', 'no'].includes(normalized))
+        return false
+      if (['true', '1', 'on', 'yes'].includes(normalized))
+        return true
+      return fallback
+    }
 
-    root.dataset.cmsNavInit = 'true'
+    const toClassTokens = (rawValue) => {
+      return String(rawValue || '')
+        .split(/\s+/)
+        .map(token => token.trim())
+        .filter(Boolean)
+    }
+
+    const normalizeRuntimeToken = (token) => {
+      if (!token)
+        return token
+      const parts = token.split(':')
+      const core = parts.pop()
+      const nakedCore = core.startsWith('!') ? core.slice(1) : core
+      const hasBreakpoint = parts.some((part) => {
+        const normalized = part.replace(/^!/, '')
+        return Object.prototype.hasOwnProperty.call(BREAKPOINT_MIN_WIDTHS, normalized)
+      })
+      const isTextSize = /^text-(xs|sm|base|lg|xl|\d+xl)$/.test(nakedCore)
+      const isFontUtility = /^font-([\w-]+|\[[^\]]+\])$/.test(nakedCore)
+      const nextCore = (hasBreakpoint || isTextSize || isFontUtility) && !core.startsWith('!')
+        ? `!${core}`
+        : core
+      return [...parts, nextCore].join(':')
+    }
+
+    const tokenVariants = (token) => {
+      if (!token)
+        return []
+      const variants = new Set([token])
+      const parts = token.split(':')
+      const core = parts.pop()
+      const nakedCore = core.startsWith('!') ? core.slice(1) : core
+      variants.add([...parts, nakedCore].join(':'))
+      variants.add([...parts, `!${nakedCore}`].join(':'))
+      return Array.from(variants).filter(Boolean)
+    }
+
+    const mapRuntimeTokens = (rawValue) => {
+      const mapped = toVarBackedUtilities(rawValue, props.theme)
+      return toClassTokens(mapped).map(normalizeRuntimeToken)
+    }
+
+    const replaceClassTokens = (el, currentTokens, nextTokens) => {
+      if (!el)
+        return nextTokens
+      currentTokens
+        .flatMap(tokenVariants)
+        .forEach(token => el.classList.remove(token))
+      const normalizedNextTokens = (nextTokens || []).map(normalizeRuntimeToken)
+      normalizedNextTokens.forEach(token => el.classList.add(token))
+      return normalizedNextTokens
+    }
+
+    const getAncestorElements = (el) => {
+      const ancestors = []
+      let parent = el?.parentElement || null
+      while (parent && parent !== document.body && parent !== document.documentElement) {
+        ancestors.push(parent)
+        parent = parent.parentElement
+      }
+      return ancestors
+    }
+
+    const isScrollableElement = (el) => {
+      if (!el || typeof window?.getComputedStyle !== 'function')
+        return false
+      const styles = window.getComputedStyle(el)
+      const overflowY = styles?.overflowY || ''
+      const overflow = styles?.overflow || ''
+      return /(auto|scroll|overlay)/.test(overflowY) || /(auto|scroll|overlay)/.test(overflow)
+    }
+
+    const collectScrollTargets = (el) => {
+      const targets = [window, document, document.documentElement, document.body]
+      const ancestors = getAncestorElements(el)
+      ancestors.forEach((ancestor) => {
+        if (isScrollableElement(ancestor))
+          targets.push(ancestor)
+      })
+      return Array.from(new Set(targets.filter(Boolean)))
+    }
+
+    const resolvePosition = () => {
+      const attrValue = String(root.getAttribute('data-cms-nav-position') || '').trim().toLowerCase()
+      if (attrValue === 'left' || attrValue === 'center' || attrValue === 'right')
+        return attrValue
+      if (root.classList.contains('cms-nav-pos-left'))
+        return 'left'
+      if (root.classList.contains('cms-nav-pos-center'))
+        return 'center'
+      return 'right'
+    }
+
+    const position = resolvePosition()
     const openClass = root.getAttribute('data-cms-nav-open-class') || 'is-open'
     const panel = root.querySelector('.cms-nav-panel, [data-cms-nav-panel]')
     const overlay = root.querySelector('.cms-nav-overlay, [data-cms-nav-overlay]')
@@ -410,6 +522,180 @@ function initCmsNavHelpers(scope) {
     const closeButtons = Array.from(root.querySelectorAll('.cms-nav-close, [data-cms-nav-close]'))
     const links = Array.from(root.querySelectorAll('.cms-nav-link, [data-cms-nav-link]'))
     const closeOnLink = root.getAttribute('data-cms-nav-close-on-link') !== 'false'
+    const navMain = root.querySelector('.cms-nav-main, [data-cms-nav-main], nav')
+    const navRow = root.querySelector('.cms-nav-layout, [data-cms-nav-layout], nav > div > div')
+    const desktopWrap = root.querySelector('.cms-nav-desktop, [data-cms-nav-desktop]')
+      || navRow?.children?.[1]
+      || null
+    const logoLink = root.querySelector('.cms-nav-logo, [data-cms-nav-logo]')
+      || navRow?.querySelector('a')
+      || null
+    const panelHiddenClass = position === 'left' ? '-translate-x-full' : 'translate-x-full'
+    const previewSurface = root.closest('[data-cms-preview-surface]')
+    const shouldContainFixedInPreview = Boolean(previewSurface)
+    const stickyEnabled = root.classList.contains('cms-nav-sticky') || parseBoolean(root.getAttribute('data-cms-nav-sticky'))
+    const getPreviewMode = () => String(previewSurface?.getAttribute('data-cms-preview-mode') || 'preview').toLowerCase()
+    const shouldPinInsidePreview = () => shouldContainFixedInPreview && getPreviewMode() === 'preview' && stickyEnabled
+    const hideOnDown = root.classList.contains('cms-nav-hide-on-down') || parseBoolean(root.getAttribute('data-cms-nav-hide-on-down'))
+    const scrollThreshold = Number(root.getAttribute('data-cms-nav-scroll-threshold') || 10)
+    const hideThreshold = Number(root.getAttribute('data-cms-nav-hide-threshold') || 80)
+    const hideDelta = Number(root.getAttribute('data-cms-nav-hide-delta') || 6)
+    const topNavClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-top-class') || '')
+    const scrolledNavClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-scrolled-class') || '')
+    const topRowClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-top-row-class') || '')
+    const scrolledRowClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-scrolled-row-class') || '')
+    const hiddenClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-hidden-class') || '-translate-y-full opacity-0')
+    const visibleClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-visible-class') || 'translate-y-0 opacity-100')
+    const transitionClassTokens = mapRuntimeTokens(root.getAttribute('data-cms-nav-transition-class') || 'transition-all duration-300')
+    const resolvePreviewPinAnchor = () => {
+      if (!previewSurface)
+        return null
+      const candidates = getAncestorElements(previewSurface).filter(isScrollableElement)
+      const scrollingCandidate = candidates.find(el => (el.scrollHeight - el.clientHeight) > 1)
+      return scrollingCandidate || candidates[0] || previewSurface
+    }
+    const resolvePreviewScrollTarget = () => {
+      if (!previewSurface)
+        return null
+      if (isScrollableElement(previewSurface) && (previewSurface.scrollHeight - previewSurface.clientHeight) > 1)
+        return previewSurface
+      const candidates = getAncestorElements(previewSurface).filter(isScrollableElement)
+      const scrollingCandidate = candidates.find(el => (el.scrollHeight - el.clientHeight) > 1)
+      return scrollingCandidate || candidates[0] || previewSurface
+    }
+    const previewPinAnchor = resolvePreviewPinAnchor()
+    const previewScrollTarget = resolvePreviewScrollTarget()
+    const scrollTargets = shouldContainFixedInPreview
+      ? Array.from(new Set([previewScrollTarget, previewPinAnchor, previewSurface].filter(Boolean)))
+      : collectScrollTargets(root)
+    const windowScrollY = () => window.scrollY || document.documentElement.scrollTop || 0
+    const readScrollY = () => {
+      if (shouldContainFixedInPreview) {
+        const scopedTarget = previewScrollTarget || previewSurface
+        if (scopedTarget && typeof scopedTarget.scrollTop === 'number')
+          return Number(scopedTarget.scrollTop || 0)
+      }
+      let maxScrollY = windowScrollY()
+      scrollTargets.forEach((target) => {
+        if (!target || target === window || target === document)
+          return
+        const current = Number(target.scrollTop || 0)
+        if (current > maxScrollY)
+          maxScrollY = current
+      })
+      return maxScrollY
+    }
+
+    const readPinAnchorTop = () => {
+      if (!previewPinAnchor || typeof previewPinAnchor.getBoundingClientRect !== 'function')
+        return 0
+      return Math.round(previewPinAnchor.getBoundingClientRect().top)
+    }
+
+    let appliedNavTokens = []
+    let appliedRowTokens = []
+    let appliedVisibilityTokens = []
+    let lastScrollY = readScrollY()
+    let pinnedViewportTop = null
+    let pinnedOffsetFromSurface = null
+    const resolvePinnedTop = () => {
+      const anchorTop = readPinAnchorTop()
+      const rootTop = Math.round(root.getBoundingClientRect().top)
+      const measuredOffset = Math.max(0, rootTop - anchorTop)
+      if (pinnedOffsetFromSurface == null) {
+        pinnedOffsetFromSurface = measuredOffset
+      }
+      pinnedViewportTop = Math.max(anchorTop + pinnedOffsetFromSurface, anchorTop, 0)
+      return pinnedViewportTop
+    }
+    if (shouldPinInsidePreview())
+      pinnedViewportTop = resolvePinnedTop()
+
+    if (navRow) {
+      navRow.classList.remove('flex-row', 'flex-row-reverse', 'justify-between', 'justify-center', 'flex-wrap', 'flex-wrap-reverse')
+      navRow.classList.add('flex', 'flex-nowrap', 'items-center', 'gap-6')
+      if (position === 'left') {
+        navRow.classList.add('flex-row-reverse', 'justify-between')
+      }
+      else if (position === 'center') {
+        navRow.classList.add('flex-row', 'justify-center')
+      }
+      else {
+        navRow.classList.add('flex-row', 'justify-between')
+      }
+    }
+
+    if (logoLink) {
+      logoLink.classList.remove('mr-6')
+      if (position === 'center')
+        logoLink.classList.add('mr-6')
+    }
+
+    if (desktopWrap) {
+      desktopWrap.classList.remove('ml-auto', 'md:flex-1', 'md:pl-6', 'items-center', 'gap-6')
+      if (position === 'left') {
+        desktopWrap.classList.add('md:flex-1', 'md:pl-6')
+      }
+      else if (position === 'center') {
+        desktopWrap.classList.add('items-center', 'gap-6')
+      }
+      else {
+        desktopWrap.classList.add('ml-auto')
+      }
+    }
+
+    const applyNavPinMode = () => {
+      if (!navMain)
+        return
+      if (shouldPinInsidePreview()) {
+        // Pin to viewport with explicit left/width so it stays within preview surface.
+        root.classList.remove('cms-nav-preview-relative')
+        navMain.classList.remove('sticky', 'absolute', 'inset-x-0')
+        navMain.classList.add('fixed', 'top-0')
+      }
+      else if (shouldContainFixedInPreview) {
+        // In preview but non-sticky: overlay within preview surface and scroll away naturally.
+        root.classList.add('cms-nav-preview-relative')
+        navMain.classList.remove('fixed', 'sticky')
+        navMain.classList.add('absolute', 'inset-x-0', 'top-0')
+      }
+      else {
+        root.classList.remove('cms-nav-preview-relative')
+        navMain.classList.remove('absolute')
+        if (stickyEnabled) {
+          navMain.classList.remove('sticky')
+          navMain.classList.add('fixed', 'inset-x-0', 'top-0')
+        }
+      }
+    }
+    applyNavPinMode()
+
+    const clearPinnedPreviewPosition = () => {
+      if (!navMain)
+        return
+      navMain.style.left = ''
+      navMain.style.width = ''
+      navMain.style.right = ''
+      navMain.style.top = ''
+      navMain.style.bottom = ''
+    }
+
+    const updatePinnedPreviewPosition = () => {
+      if (!shouldPinInsidePreview() || !navMain || !previewSurface)
+        return
+      const surfaceRect = previewSurface.getBoundingClientRect()
+      if (pinnedViewportTop == null)
+        pinnedViewportTop = resolvePinnedTop()
+      navMain.style.left = `${Math.round(surfaceRect.left)}px`
+      navMain.style.width = `${Math.round(surfaceRect.width)}px`
+      navMain.style.right = 'auto'
+      navMain.style.bottom = 'auto'
+      navMain.style.top = `${pinnedViewportTop}px`
+    }
+
+    if (navMain && transitionClassTokens.length) {
+      transitionClassTokens.forEach(token => navMain.classList.add(token))
+    }
 
     const markInteractive = (el) => {
       if (!el)
@@ -423,7 +709,188 @@ function initCmsNavHelpers(scope) {
     markInteractive(panel)
     markInteractive(overlay)
 
+    const folderEntries = []
+    const helperFolders = Array.from(root.querySelectorAll('.cms-nav-folder, [data-cms-nav-folder]'))
+    helperFolders.forEach((folder) => {
+      folderEntries.push({
+        folder,
+        toggle: folder.querySelector('.cms-nav-folder-toggle, [data-cms-nav-folder-toggle]'),
+        menu: folder.querySelector('.cms-nav-folder-menu, [data-cms-nav-folder-menu]'),
+      })
+    })
+
+    const fallbackFolders = Array.from(root.querySelectorAll('.cms-nav-desktop li.group, [data-cms-nav-desktop] li.group'))
+    fallbackFolders.forEach((folder) => {
+      if (folderEntries.some(entry => entry.folder === folder))
+        return
+      const directChildren = Array.from(folder.children || [])
+      const toggle = directChildren.find(child => child?.matches?.('a, button, [role="button"]'))
+        || folder.querySelector('a, button, [role="button"]')
+      const menu = directChildren.find((child) => {
+        if (!child?.matches?.('div.hidden, ul.hidden, [hidden], div.absolute, ul.absolute'))
+          return false
+        const hasItemLinks = child.querySelectorAll('a, button, [role="button"]').length > 0
+        return hasItemLinks
+      })
+        || folder.querySelector('div.hidden, ul.hidden, [hidden]')
+      if (!toggle || !menu)
+        return
+      folderEntries.push({ folder, toggle, menu })
+    })
+
+    const folderCleanupFns = []
+    const setFolderOpenState = (folder, menu, open) => {
+      folder.classList.toggle('cms-nav-folder-open', open)
+      folder.setAttribute('data-cms-nav-folder-open', open ? 'true' : 'false')
+      menu.classList.toggle('hidden', !open)
+      menu.classList.toggle('block', open)
+      menu.classList.toggle('pointer-events-none', !open)
+      menu.classList.toggle('pointer-events-auto', open)
+    }
+
+    folderEntries.forEach(({ folder, toggle, menu }) => {
+      if (!toggle || !menu)
+        return
+
+      Array.from(menu.classList).forEach((token) => {
+        if (token.startsWith('group-hover:') || token.startsWith('group-focus-within:'))
+          menu.classList.remove(token)
+      })
+      folder.classList.add('cms-nav-folder')
+      toggle.classList.add('cms-nav-folder-toggle')
+      menu.classList.add('cms-nav-folder-menu')
+      markInteractive(toggle)
+      markInteractive(menu)
+      Array.from(menu.querySelectorAll('a, button, [role="button"]')).forEach(markInteractive)
+
+      let closeTimer = 0
+      const clearCloseTimer = () => {
+        if (closeTimer) {
+          clearTimeout(closeTimer)
+          closeTimer = 0
+        }
+      }
+
+      const openFolder = () => {
+        clearCloseTimer()
+        setFolderOpenState(folder, menu, true)
+      }
+
+      const closeFolder = () => {
+        clearCloseTimer()
+        setFolderOpenState(folder, menu, false)
+      }
+
+      const scheduleCloseFolder = () => {
+        clearCloseTimer()
+        closeTimer = window.setTimeout(() => {
+          closeTimer = 0
+          setFolderOpenState(folder, menu, false)
+        }, 120)
+      }
+
+      const onPointerEnter = () => {
+        openFolder()
+      }
+
+      const onPointerLeave = (event) => {
+        const nextTarget = event?.relatedTarget
+        if (nextTarget && folder.contains(nextTarget))
+          return
+        scheduleCloseFolder()
+      }
+
+      const onFocusIn = () => {
+        openFolder()
+      }
+
+      const onFocusOut = (event) => {
+        const nextTarget = event?.relatedTarget
+        if (nextTarget && folder.contains(nextTarget))
+          return
+        closeFolder()
+      }
+
+      const onToggleClick = (event) => {
+        if (event.defaultPrevented)
+          return
+        if (window.matchMedia('(hover: hover) and (pointer: fine)').matches)
+          return
+        const isOpenNow = folder.getAttribute('data-cms-nav-folder-open') === 'true'
+        if (!isOpenNow) {
+          event.preventDefault()
+          event.stopPropagation()
+          openFolder()
+          return
+        }
+        closeFolder()
+      }
+
+      const onDocumentClickCapture = (event) => {
+        const clickTarget = event?.target
+        if (clickTarget && folder.contains(clickTarget))
+          return
+        closeFolder()
+      }
+
+      folder.addEventListener('pointerenter', onPointerEnter)
+      folder.addEventListener('pointerleave', onPointerLeave)
+      folder.addEventListener('focusin', onFocusIn)
+      folder.addEventListener('focusout', onFocusOut)
+      toggle.addEventListener('click', onToggleClick)
+      document.addEventListener('click', onDocumentClickCapture, true)
+
+      setFolderOpenState(folder, menu, false)
+
+      folderCleanupFns.push(() => {
+        clearCloseTimer()
+        setFolderOpenState(folder, menu, false)
+        folder.removeEventListener('pointerenter', onPointerEnter)
+        folder.removeEventListener('pointerleave', onPointerLeave)
+        folder.removeEventListener('focusin', onFocusIn)
+        folder.removeEventListener('focusout', onFocusOut)
+        toggle.removeEventListener('click', onToggleClick)
+        document.removeEventListener('click', onDocumentClickCapture, true)
+      })
+    })
+
     const isOpen = () => root.classList.contains(openClass)
+
+    const setScrolledState = (isScrolled) => {
+      root.classList.toggle('cms-nav-scrolled', isScrolled)
+      root.setAttribute('data-cms-nav-scrolled', isScrolled ? 'true' : 'false')
+      appliedNavTokens = replaceClassTokens(navMain, appliedNavTokens, isScrolled ? scrolledNavClassTokens : topNavClassTokens)
+      appliedRowTokens = replaceClassTokens(navRow, appliedRowTokens, isScrolled ? scrolledRowClassTokens : topRowClassTokens)
+    }
+
+    const setVisibilityState = (isHidden) => {
+      root.classList.toggle('cms-nav-hidden', isHidden)
+      root.setAttribute('data-cms-nav-hidden', isHidden ? 'true' : 'false')
+      appliedVisibilityTokens = replaceClassTokens(navMain, appliedVisibilityTokens, isHidden ? hiddenClassTokens : visibleClassTokens)
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = readScrollY()
+      const isScrolled = currentScrollY > scrollThreshold
+      setScrolledState(isScrolled)
+      updatePinnedPreviewPosition()
+
+      if (hideOnDown && navMain) {
+        const delta = currentScrollY - lastScrollY
+        const absDelta = Math.abs(delta)
+        if (currentScrollY <= hideThreshold) {
+          setVisibilityState(false)
+        }
+        else if (absDelta >= hideDelta) {
+          setVisibilityState(delta > 0)
+        }
+      }
+      else {
+        setVisibilityState(false)
+      }
+
+      lastScrollY = currentScrollY
+    }
 
     const setOpen = (open) => {
       root.classList.toggle(openClass, open)
@@ -434,10 +901,18 @@ function initCmsNavHelpers(scope) {
       })
 
       if (panel) {
+        panel.classList.remove('left-0', 'right-0', 'right-auto', 'left-auto', 'translate-x-full', '-translate-x-full')
+        if (position === 'left') {
+          panel.classList.add('left-0', 'right-auto')
+        }
+        else {
+          panel.classList.add('right-0', 'left-auto')
+        }
+
         panel.classList.toggle('translate-x-0', open)
         panel.classList.toggle('opacity-100', open)
         panel.classList.toggle('pointer-events-auto', open)
-        panel.classList.toggle('translate-x-full', !open)
+        panel.classList.toggle(panelHiddenClass, !open)
         panel.classList.toggle('opacity-0', !open)
         panel.classList.toggle('pointer-events-none', !open)
         panel.setAttribute('aria-hidden', open ? 'false' : 'true')
@@ -453,6 +928,11 @@ function initCmsNavHelpers(scope) {
     }
 
     setOpen(root.classList.contains(openClass) || root.getAttribute('data-cms-nav-open') === 'true')
+    handleScroll()
+    if (shouldPinInsidePreview())
+      updatePinnedPreviewPosition()
+    else
+      clearPinnedPreviewPosition()
 
     toggles.forEach((btn) => {
       btn.addEventListener('click', (event) => {
@@ -485,6 +965,101 @@ function initCmsNavHelpers(scope) {
         })
       })
     }
+
+    const scrollListeners = scrollTargets
+    scrollListeners.forEach((target) => {
+      target.addEventListener('scroll', handleScroll, { passive: true })
+    })
+    let previewModeObserver = null
+    let previewSurfaceObserver = null
+    let previewSurfaceAttrObserver = null
+    let pinSyncRaf = 0
+    const schedulePinnedPositionSync = () => {
+      if (pinSyncRaf)
+        cancelAnimationFrame(pinSyncRaf)
+      pinSyncRaf = requestAnimationFrame(() => {
+        pinSyncRaf = 0
+        updatePinnedPreviewPosition()
+      })
+    }
+    const handlePreviewModeMutation = () => {
+      pinnedViewportTop = null
+      pinnedOffsetFromSurface = null
+      applyNavPinMode()
+      if (shouldPinInsidePreview()) {
+        updatePinnedPreviewPosition()
+      }
+      else {
+        clearPinnedPreviewPosition()
+      }
+      handleScroll()
+    }
+    if (previewSurface) {
+      previewModeObserver = new MutationObserver((entries) => {
+        if (entries.some(entry => entry.type === 'attributes' && entry.attributeName === 'data-cms-preview-mode'))
+          handlePreviewModeMutation()
+      })
+      previewModeObserver.observe(previewSurface, {
+        attributes: true,
+        attributeFilter: ['data-cms-preview-mode'],
+      })
+      // Viewport-mode switches change preview width/position without a window resize.
+      // Keep fixed nav left/width aligned to the preview surface as it transitions.
+      if (typeof ResizeObserver !== 'undefined') {
+        previewSurfaceObserver = new ResizeObserver(() => {
+          schedulePinnedPositionSync()
+        })
+        previewSurfaceObserver.observe(previewSurface)
+        if (previewPinAnchor && previewPinAnchor !== previewSurface)
+          previewSurfaceObserver.observe(previewPinAnchor)
+      }
+      previewSurfaceAttrObserver = new MutationObserver((entries) => {
+        if (entries.some(entry => entry.type === 'attributes' && (entry.attributeName === 'class' || entry.attributeName === 'style')))
+          schedulePinnedPositionSync()
+      })
+      previewSurfaceAttrObserver.observe(previewSurface, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+      })
+      previewSurface.addEventListener('transitionrun', schedulePinnedPositionSync)
+      previewSurface.addEventListener('transitionstart', schedulePinnedPositionSync)
+      previewSurface.addEventListener('transitionend', schedulePinnedPositionSync)
+      previewSurface.addEventListener('transitioncancel', schedulePinnedPositionSync)
+    }
+    const handleResize = () => {
+      if (shouldPinInsidePreview() && pinnedViewportTop == null)
+        pinnedViewportTop = resolvePinnedTop()
+      updatePinnedPreviewPosition()
+    }
+    window.addEventListener('resize', handleResize, { passive: true })
+
+    scope.__cmsNavCleanupFns.push(() => {
+      folderCleanupFns.forEach((cleanup) => {
+        try {
+          cleanup()
+        }
+        catch {}
+      })
+      scrollListeners.forEach((target) => {
+        target.removeEventListener('scroll', handleScroll)
+      })
+      window.removeEventListener('resize', handleResize)
+      if (previewModeObserver)
+        previewModeObserver.disconnect()
+      if (previewSurfaceObserver)
+        previewSurfaceObserver.disconnect()
+      if (previewSurfaceAttrObserver)
+        previewSurfaceAttrObserver.disconnect()
+      if (previewSurface) {
+        previewSurface.removeEventListener('transitionrun', schedulePinnedPositionSync)
+        previewSurface.removeEventListener('transitionstart', schedulePinnedPositionSync)
+        previewSurface.removeEventListener('transitionend', schedulePinnedPositionSync)
+        previewSurface.removeEventListener('transitioncancel', schedulePinnedPositionSync)
+      }
+      if (pinSyncRaf)
+        cancelAnimationFrame(pinSyncRaf)
+      clearPinnedPreviewPosition()
+    })
   })
 }
 
@@ -881,10 +1456,6 @@ function rewriteAllClasses(scopeEl, theme, isolated = true, viewportMode = 'auto
 onMounted(async () => {
   await ensureUnoRuntime()
 
-  // Initialize carousels/behaviors for SSR-inserted HTML
-  initEmblaCarousels(hostEl.value)
-  initCmsNavHelpers(hostEl.value)
-
   // Apply global theme once (keeps one style tag for vars; blocks can still override locally if needed)
   // setGlobalThemeVars(props.theme)
   setScopedThemeVars(hostEl.value, props.theme)
@@ -892,6 +1463,9 @@ onMounted(async () => {
   // setScopedThemeVars(hostEl.value, normalizeTheme(props.theme))
   applyThemeClasses(hostEl.value, props.theme, (props.theme && props.theme.variant) || 'light')
   rewriteAllClasses(hostEl.value, props.theme, props.isolated, props.viewportMode)
+  // Initialize behaviors after class rewriting so helpers use final class state.
+  initEmblaCarousels(hostEl.value)
+  initCmsNavHelpers(hostEl.value)
   await nextTick()
   hasMounted = true
   notifyLoaded()
@@ -902,13 +1476,13 @@ watch(
   async (val) => {
     // Wait for DOM to reflect new v-html, then (re)wire behaviors and class mappings
     await nextTick()
-    initEmblaCarousels(hostEl.value)
-    initCmsNavHelpers(hostEl.value)
     // setGlobalThemeVars(props.theme)
     setScopedThemeVars(hostEl.value, props.theme)
 
     applyThemeClasses(hostEl.value, props.theme, (props.theme && props.theme.variant) || 'light')
     rewriteAllClasses(hostEl.value, props.theme, props.isolated, props.viewportMode)
+    initEmblaCarousels(hostEl.value)
+    initCmsNavHelpers(hostEl.value)
     await nextTick()
     notifyLoaded()
   },
@@ -922,6 +1496,7 @@ watch(
     // 2) Apply classes based on `apply`, `slots`, and optional variants
     applyThemeClasses(hostEl.value, val, (val && val.variant) || 'light')
     rewriteAllClasses(hostEl.value, val, props.isolated, props.viewportMode)
+    initCmsNavHelpers(hostEl.value)
     await nextTick()
     notifyLoaded()
   },
@@ -933,10 +1508,22 @@ watch(
   async () => {
     await nextTick()
     rewriteAllClasses(hostEl.value, props.theme, props.isolated, props.viewportMode)
+    // Viewport button changes can alter preview surface width without a window resize.
+    // Reinitialize nav helpers so fixed nav left/width is recalculated immediately.
+    initCmsNavHelpers(hostEl.value)
   },
 )
 
 onBeforeUnmount(() => {
+  if (hostEl.value && Array.isArray(hostEl.value.__cmsNavCleanupFns)) {
+    hostEl.value.__cmsNavCleanupFns.forEach((cleanup) => {
+      try {
+        cleanup()
+      }
+      catch {}
+    })
+    hostEl.value.__cmsNavCleanupFns = []
+  }
   // UnoCSS runtime attaches globally; no per-component teardown required.
 })
 </script>
@@ -952,5 +1539,9 @@ onBeforeUnmount(() => {
 <style>
 p {
   margin-bottom: 1em;
+}
+
+.cms-nav-preview-relative {
+  position: relative;
 }
 </style>

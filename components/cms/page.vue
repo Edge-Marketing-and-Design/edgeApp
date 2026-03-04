@@ -22,6 +22,16 @@ const emit = defineEmits(['head'])
 const edgeFirebase = inject('edgeFirebase')
 const router = useRouter()
 const { buildPageStructuredData } = useStructuredDataTemplates()
+const cmsMultiOrg = useState('cmsMultiOrg', () => true)
+const isAdmin = computed(() => edgeGlobal.isAdminGlobal(edgeFirebase).value)
+const isDevModeEnabled = computed(() => process.dev || Boolean(edgeGlobal.edgeState.devOverride))
+const canOpenPreviewBlockContentEditor = computed(() => {
+  if (!isAdmin.value)
+    return false
+  if (cmsMultiOrg.value)
+    return true
+  return isDevModeEnabled.value
+})
 
 const state = reactive({
   newDocs: {
@@ -50,6 +60,7 @@ const state = reactive({
   importErrorDialogOpen: false,
   importErrorMessage: '',
   previewViewport: 'full',
+  previewPageView: 'list',
   newRowLayout: '6',
   newPostRowLayout: '6',
   rowSettings: {
@@ -110,15 +121,25 @@ const previewViewportStyle = computed(() => {
 })
 
 const previewViewportContainStyle = computed(() => {
-  const shouldContain = !state.editMode
   return {
     ...(previewViewportStyle.value || {}),
-    ...(shouldContain ? { transform: 'translateZ(0)' } : {}),
   }
 })
 
 const setPreviewViewport = (viewportId) => {
   state.previewViewport = viewportId
+}
+
+const hasPostView = (workingDoc) => {
+  if (!workingDoc || typeof workingDoc !== 'object')
+    return false
+  return Boolean(workingDoc.post)
+    || (Array.isArray(workingDoc.postContent) && workingDoc.postContent.length > 0)
+    || (Array.isArray(workingDoc.postStructure) && workingDoc.postStructure.length > 0)
+}
+
+const setPreviewPageView = (view) => {
+  state.previewPageView = view === 'post' ? 'post' : 'list'
 }
 
 const previewViewportMode = computed(() => {
@@ -161,6 +182,14 @@ const ROW_GAP_OPTIONS = [
   { name: '6', title: 'Large' },
   { name: '8', title: 'X-Large' },
 ]
+
+const ROW_GAP_CLASS_MAP = {
+  0: 'gap-0 sm:gap-0',
+  2: 'gap-0 sm:gap-2',
+  4: 'gap-0 sm:gap-4',
+  6: 'gap-0 sm:gap-6',
+  8: 'gap-0 sm:gap-8',
+}
 
 const ROW_MOBILE_STACK_OPTIONS = [
   { name: 'normal', title: 'Left first' },
@@ -467,17 +496,51 @@ const blockPick = (block, index, slotProps, post = false) => {
 }
 
 const applyCollectionUniqueKeys = (workingDoc) => {
+  const hasTemplateToken = (value) => {
+    if (typeof value === 'string')
+      return value.includes('{orgId}') || value.includes('{siteId}')
+    if (Array.isArray(value))
+      return value.some(entry => hasTemplateToken(entry))
+    if (value && typeof value === 'object')
+      return Object.values(value).some(entry => hasTemplateToken(entry))
+    return false
+  }
+
+  const resolveTokens = (value) => {
+    if (typeof value === 'string') {
+      let resolved = value
+      const orgId = edgeGlobal.edgeState.currentOrganization || ''
+      const siteId = props.site || ''
+      if (resolved.includes('{orgId}') && orgId)
+        resolved = resolved.replaceAll('{orgId}', orgId)
+      if (resolved.includes('{siteId}') && siteId)
+        resolved = resolved.replaceAll('{siteId}', siteId)
+      return resolved
+    }
+    if (Array.isArray(value))
+      return value.map(entry => resolveTokens(entry))
+    if (value && typeof value === 'object') {
+      const out = {}
+      Object.keys(value).forEach((key) => {
+        out[key] = resolveTokens(value[key])
+      })
+      return out
+    }
+    return value
+  }
+
+  const isEmptyQueryItem = (value) => {
+    if (value === undefined || value === null || value === '')
+      return true
+    if (Array.isArray(value))
+      return value.length === 0
+    return false
+  }
+
   const resolveUniqueKey = (template) => {
     if (!template || typeof template !== 'string')
       return ''
-    let resolved = template
-    const orgId = edgeGlobal.edgeState.currentOrganization || ''
-    const siteId = props.site || ''
-    if (resolved.includes('{orgId}') && orgId)
-      resolved = resolved.replaceAll('{orgId}', orgId)
-    if (resolved.includes('{siteId}') && siteId)
-      resolved = resolved.replaceAll('{siteId}', siteId)
-    return resolved
+    return resolveTokens(template)
   }
 
   const applyToBlocks = (blocks) => {
@@ -489,6 +552,27 @@ const applyCollectionUniqueKeys = (workingDoc) => {
         return
       Object.keys(meta).forEach((fieldKey) => {
         const cfg = meta[fieldKey]
+        if (!cfg || typeof cfg !== 'object')
+          return
+
+        // Materialize tokenized collection.query filters (e.g. {siteId}) into queryItems
+        // so frontend hydration receives concrete runtime filter selections.
+        if (Array.isArray(cfg?.collection?.query)) {
+          if (!cfg.queryItems || typeof cfg.queryItems !== 'object')
+            cfg.queryItems = {}
+          for (const queryFilter of cfg.collection.query) {
+            const queryField = queryFilter?.field
+            if (!queryField || typeof queryField !== 'string')
+              continue
+            const rawValue = queryFilter?.value
+            if (!hasTemplateToken(rawValue))
+              continue
+            if (!isEmptyQueryItem(cfg.queryItems[queryField]))
+              continue
+            cfg.queryItems[queryField] = resolveTokens(rawValue)
+          }
+        }
+
         if (!cfg?.collection?.uniqueKey)
           return
         const resolved = resolveUniqueKey(cfg.collection.uniqueKey)
@@ -560,6 +644,8 @@ const editorDocUpdates = (workingDoc) => {
   if (workingDoc?.post || (Array.isArray(workingDoc?.postContent) && workingDoc.postContent.length > 0) || Array.isArray(workingDoc?.postStructure))
     ensureStructureDefaults(workingDoc, true)
   applyCollectionUniqueKeys(workingDoc)
+  if (!hasPostView(workingDoc) && state.previewPageView === 'post')
+    state.previewPageView = 'list'
   const blockIds = (workingDoc.content || []).map(block => block.blockId).filter(id => id)
   const postBlockIds = workingDoc.postContent ? workingDoc.postContent.map(block => block.blockId).filter(id => id) : []
   blockIds.push(...postBlockIds)
@@ -859,11 +945,7 @@ const rowUsesSpans = row => (row?.columns || []).some(col => Number.isFinite(col
 
 const rowGapClass = (row) => {
   const gap = Number(row?.gap)
-  const allowed = new Set([0, 2, 4, 6, 8])
-  const safeGap = allowed.has(gap) ? gap : 4
-  if (safeGap === 0)
-    return 'gap-0'
-  return ['gap-0', `sm:gap-${safeGap}`].join(' ')
+  return ROW_GAP_CLASS_MAP[gap] || ROW_GAP_CLASS_MAP[4]
 }
 
 const rowGridClass = (row) => {
@@ -1329,6 +1411,11 @@ const slugifyMenuPageName = (value) => {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)+/g, '') || 'page'
 }
+const titleFromSlug = (slug) => {
+  if (!slug)
+    return ''
+  return String(slug).replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
 
 const makeUniqueMenuPageName = (value, existingNames = new Set()) => {
   const base = slugifyMenuPageName(value)
@@ -1357,7 +1444,8 @@ const addImportedPageToSiteMenu = async (docId, pageName = '') => {
 
   const existingNames = collectMenuPageNames(menus)
   const menuName = makeUniqueMenuPageName(pageName || nextDocId, existingNames)
-  menus['Site Root'].push({ name: menuName, item: nextDocId })
+  const menuTitle = String(pageName || '').trim() || titleFromSlug(menuName)
+  menus['Site Root'].push({ name: menuName, menuTitle, item: nextDocId })
 
   const results = await edgeFirebase.changeDoc(sitesCollectionPath, siteId, { menus })
   if (results?.success === false)
@@ -1776,7 +1864,7 @@ const hasUnsavedChanges = (changes) => {
     :doc-id="page"
     :schema="schemas.pages"
     :new-doc-schema="state.newDocs.pages"
-    class="w-full mx-auto flex-1 bg-transparent flex flex-col border-none shadow-none pt-0 px-0"
+    class="w-full mx-auto flex-1 bg-transparent flex flex-col border-none shadow-none pt-0 px-0" :class="[!state.editMode ? 'cms-page-preview-mode' : '']"
     :show-footer="false"
     :save-redirect-override="`/app/dashboard/sites/${site}`"
     :no-close-after-save="true"
@@ -1785,7 +1873,7 @@ const hasUnsavedChanges = (changes) => {
     @unsaved-changes="hasUnsavedChanges"
   >
     <template #header="slotProps">
-      <div class="relative flex items-center p-2 justify-between sticky top-0 z-50 bg-gray-100 rounded h-[50px]">
+      <div class="relative flex items-center p-2 justify-between  top-0 z-50 bg-gray-100 rounded h-[50px]">
         <span class="text-lg font-semibold whitespace-nowrap pr-1">{{ pageName }}</span>
 
         <div class="flex w-full items-center">
@@ -1847,20 +1935,45 @@ const hasUnsavedChanges = (changes) => {
             </edge-shad-button>
           </div>
 
-          <div class="flex items-center gap-1 pr-3">
-            <span class="text-[11px] uppercase tracking-wide text-muted-foreground">Viewport</span>
-            <edge-shad-button
-              v-for="option in previewViewportOptions"
-              :key="option.id"
-              type="button"
-              variant="ghost"
-              size="icon"
-              class="h-[26px] w-[26px] text-xs gap-1 border transition-colors"
-              :class="state.previewViewport === option.id ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted text-foreground border-border hover:bg-muted/80'"
-              @click="setPreviewViewport(option.id)"
-            >
-              <component :is="option.icon" class="w-3.5 h-3.5" />
-            </edge-shad-button>
+          <div class="flex flex-col items-center gap-1 px-2">
+            <div class="flex items-center gap-1">
+              <edge-shad-button
+                v-for="option in previewViewportOptions"
+                :key="option.id"
+                type="button"
+                variant="ghost"
+                size="icon"
+                class="h-[26px] w-[26px] text-xs gap-1 border transition-colors"
+                :class="state.previewViewport === option.id ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted text-foreground border-border hover:bg-muted/80'"
+                @click="setPreviewViewport(option.id)"
+              >
+                <component :is="option.icon" class="w-3.5 h-3.5" />
+              </edge-shad-button>
+            </div>
+            <span class="text-[10px] leading-tight text-muted-foreground">Viewport</span>
+          </div>
+          <div v-if="hasPostView(slotProps.workingDoc)" class="flex flex-col items-center gap-1 px-2">
+            <div class="flex items-center gap-1">
+              <edge-shad-button
+                type="button"
+                variant="ghost"
+                class="h-[26px] px-2 text-xs border transition-colors"
+                :class="state.previewPageView === 'list' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted text-foreground border-border hover:bg-muted/80'"
+                @click="setPreviewPageView('list')"
+              >
+                Index
+              </edge-shad-button>
+              <edge-shad-button
+                type="button"
+                variant="ghost"
+                class="h-[26px] px-2 text-xs border transition-colors"
+                :class="state.previewPageView === 'post' ? 'bg-primary text-primary-foreground border-primary shadow-sm' : 'bg-muted text-foreground border-border hover:bg-muted/80'"
+                @click="setPreviewPageView('post')"
+              >
+                Detail
+              </edge-shad-button>
+            </div>
+            <span class="text-[10px] leading-tight text-muted-foreground">View</span>
           </div>
 
           <edge-shad-button variant="text" class="hover:text-primary/50 text-xs h-[26px] text-primary" @click="state.editMode = !state.editMode">
@@ -1906,7 +2019,7 @@ const hasUnsavedChanges = (changes) => {
       </div>
     </template>
     <template #success-alert>
-      <div v-if="!props.isTemplateSite" class="mt-2 flex flex-wrap items-center gap-2">
+      <div v-if="state.editMode && !props.isTemplateSite" class="mt-2 flex flex-wrap items-center gap-2">
         <edge-shad-button
           variant="outline"
           class="text-xs h-[28px] gap-1"
@@ -1923,20 +2036,13 @@ const hasUnsavedChanges = (changes) => {
       </div>
     </template>
     <template #main="slotProps">
-      <Tabs class="w-full" default-value="list">
-        <TabsList v-if="slotProps.workingDoc?.post" class="w-full mt-3 bg-primary rounded-sm">
-          <TabsTrigger value="list">
-            Index Page
-          </TabsTrigger>
-          <TabsTrigger value="post">
-            Detail Page
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="list">
-          <Separator class="my-4" />
+      <Tabs class="w-full" :model-value="hasPostView(slotProps.workingDoc) ? state.previewPageView : 'list'">
+        <TabsContent value="list" class="mt-0">
           <div
             :key="`${pagePreviewRenderKey}:list`"
-            class="w-full mx-auto bg-card border border-border shadow-sm md:shadow-md p-0 space-y-6"
+            data-cms-preview-surface="page"
+            :data-cms-preview-mode="state.editMode ? 'edit' : 'preview'"
+            class="w-full h-[calc(100vh-180px)]  mt-2 overflow-y-auto mx-auto bg-card border border-border shadow-sm md:shadow-md p-0 space-y-6"
             :class="[{ 'transition-all duration-300': !state.editMode }, state.editMode ? 'rounded-lg' : 'rounded-none']"
             :style="previewViewportContainStyle"
           >
@@ -2082,7 +2188,9 @@ const hasUnsavedChanges = (changes) => {
                                   v-model="slotProps.workingDoc.content[blockIndex(slotProps.workingDoc, blockId, false)]"
                                   :site-id="props.site"
                                   :edit-mode="state.editMode"
-                                  :contain-fixed="true"
+                                  :override-clicks-in-edit-mode="state.editMode"
+                                  :allow-preview-content-edit="!state.editMode && canOpenPreviewBlockContentEditor"
+                                  :contain-fixed="state.editMode"
                                   :viewport-mode="previewViewportMode"
                                   :block-id="blockId"
                                   :theme="theme"
@@ -2185,11 +2293,12 @@ const hasUnsavedChanges = (changes) => {
             </edge-button-divider>
           </div>
         </TabsContent>
-        <TabsContent value="post">
-          <Separator class="my-4" />
+        <TabsContent v-if="hasPostView(slotProps.workingDoc)" value="post" class="mt-0">
           <div
             :key="`${pagePreviewRenderKey}:post`"
-            class="w-full mx-auto bg-card border border-border shadow-sm md:shadow-md p-4 space-y-6"
+            data-cms-preview-surface="page"
+            :data-cms-preview-mode="state.editMode ? 'edit' : 'preview'"
+            class="w-full  h-[calc(100vh-180px)]  mt-2 overflow-y-auto mx-auto bg-card border border-border shadow-sm md:shadow-md p-0 space-y-6"
             :class="[{ 'transition-all duration-300': !state.editMode }, state.editMode ? 'rounded-lg' : 'rounded-none']"
             :style="previewViewportContainStyle"
           >
@@ -2334,7 +2443,9 @@ const hasUnsavedChanges = (changes) => {
                                   :key="`${pagePreviewRenderKey}:${blockId}:${effectiveThemeId}:post`"
                                   v-model="slotProps.workingDoc.postContent[blockIndex(slotProps.workingDoc, blockId, true)]"
                                   :edit-mode="state.editMode"
-                                  :contain-fixed="true"
+                                  :override-clicks-in-edit-mode="state.editMode"
+                                  :allow-preview-content-edit="!state.editMode && canOpenPreviewBlockContentEditor"
+                                  :contain-fixed="state.editMode"
                                   :viewport-mode="previewViewportMode"
                                   :block-id="blockId"
                                   :theme="theme"
@@ -2652,5 +2763,9 @@ const hasUnsavedChanges = (changes) => {
 
 .block-drag-handle:active {
   cursor: grabbing;
+}
+
+.cms-page-preview-mode :deep(.border-emerald-200.bg-emerald-50) {
+  display: none !important;
 }
 </style>

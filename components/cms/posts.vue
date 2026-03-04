@@ -542,7 +542,10 @@ const unPublishPost = async (postId) => {
 </script>
 
 <template>
-  <div v-if="props.mode !== 'editor'" class="space-y-4">
+  <div
+    v-if="props.mode !== 'editor'"
+    :class="isFullList ? 'h-full min-h-0 flex flex-col gap-4 overflow-hidden' : 'space-y-4 h-full min-h-0 overflow-y-auto'"
+  >
     <edge-shad-button
       variant="outline"
       :class="isFullList ? 'h-8 px-3' : 'w-full mt-2 py-0 h-[28px]'"
@@ -552,7 +555,10 @@ const unPublishPost = async (postId) => {
       New Post
     </edge-shad-button>
 
-    <div v-if="isFullList" class="rounded-lg border bg-card overflow-hidden">
+    <div
+      v-if="isFullList"
+      class="rounded-lg border bg-card overflow-hidden flex flex-col h-[calc(100vh-180px)] max-h-[calc(100vh-180px)]"
+    >
       <div class="flex items-center justify-between px-4 py-3 border-b bg-muted/40">
         <div class="text-sm font-semibold">
           Posts
@@ -561,7 +567,10 @@ const unPublishPost = async (postId) => {
           {{ postsList.length }} total
         </div>
       </div>
-      <div v-if="hasPosts" class="divide-y">
+      <div
+        v-if="hasPosts"
+        class="divide-y overflow-y-auto h-[calc(100vh-260px)] max-h-[calc(100vh-260px)]"
+      >
         <div
           v-for="post in postsList"
           :key="post.id"
@@ -646,7 +655,7 @@ const unPublishPost = async (postId) => {
       </div>
       <div
         v-else
-        class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-center"
+        class="flex-1 flex flex-col items-center justify-center gap-3 px-6 py-12 text-center"
       >
         <File class="h-8 w-8 text-muted-foreground/60" />
         <div class="space-y-1">
