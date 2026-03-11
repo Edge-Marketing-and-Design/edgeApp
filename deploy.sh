@@ -99,6 +99,57 @@ resolve_functions_region() {
   echo "us-west1"
 }
 
+resolve_project_id() {
+  if [ -n "${PROJECT_ID:-}" ]; then
+    echo "$PROJECT_ID"
+    return
+  fi
+
+  if [ -n "${FIREBASE_PROJECT_ID:-}" ]; then
+    echo "$FIREBASE_PROJECT_ID"
+    return
+  fi
+
+  if [ -f ".firebaserc" ]; then
+    local rc_project
+    rc_project="$(
+      node - <<'NODE'
+const fs = require('fs')
+const path = '.firebaserc'
+try {
+  const json = JSON.parse(fs.readFileSync(path, 'utf8'))
+  const projectId = json?.projects?.default || ''
+  process.stdout.write(projectId)
+}
+catch {
+  process.stdout.write('')
+}
+NODE
+    )"
+    if [ -n "$rc_project" ]; then
+      echo "$rc_project"
+      return
+    fi
+  fi
+
+  if [ -n "${GCLOUD_PROJECT:-}" ]; then
+    echo "$GCLOUD_PROJECT"
+    return
+  fi
+
+  if [ -n "${GOOGLE_CLOUD_PROJECT:-}" ]; then
+    echo "$GOOGLE_CLOUD_PROJECT"
+    return
+  fi
+
+  if [ -n "${CLOUDSDK_CORE_PROJECT:-}" ]; then
+    echo "$CLOUDSDK_CORE_PROJECT"
+    return
+  fi
+
+  echo ""
+}
+
 ensure_callable_public_access() {
   if ! command -v gcloud >/dev/null 2>&1; then
     echo "Deploy aborted: gcloud CLI not found. It is required to enforce callable invoker access." >&2
@@ -107,6 +158,13 @@ ensure_callable_public_access() {
 
   local region
   region="$(resolve_functions_region)"
+  local project_id
+  project_id="$(resolve_project_id)"
+
+  if [ -z "$project_id" ]; then
+    echo "Deploy aborted: unable to resolve project id for callable invoker enforcement." >&2
+    exit 1
+  fi
 
   local callable_functions
   callable_functions="$(
@@ -146,12 +204,13 @@ NODE
     return
   fi
 
-  echo "Ensuring public invoker access for callable functions in region '${region}'..."
+  echo "Ensuring public invoker access for callable functions in region '${region}' (project '${project_id}')..."
   while IFS= read -r function_name; do
     [ -z "$function_name" ] && continue
     echo " - ${function_name}"
     gcloud functions add-invoker-policy-binding "$function_name" \
       --gen2 \
+      --project "$project_id" \
       --region "$region" \
       --member="allUsers" >/dev/null
   done <<< "$callable_functions"
